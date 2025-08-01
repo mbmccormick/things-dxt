@@ -113,8 +113,9 @@ A comprehensive Claude Desktop Extension that provides seamless integration with
 
 #### `update_todo` - Update existing todo
 **Required**: `id`  
-**Optional**: `title`, `notes`, `when`, `deadline`, `tags`, `completed`, `canceled`
+**Optional**: `title`, `notes`, `when`, `deadline`, `tags`, `checklist_items`, `completed`, `canceled`
 - `tags`: Array of tag names. Use `[]` to remove all tags
+- `checklist_items`: Array of checklist items. Appends to existing notes as formatted list
 
 #### `update_project` - Update existing project
 **Required**: `id`  

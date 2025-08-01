@@ -429,6 +429,7 @@ export class ToolHandlers {
           deadline: scriptParams.due_date,
           when: scriptParams.activation_date,
           tags: scriptParams.tags,
+          checklist_items: scriptParams.checklist_items,
           completed: scriptParams.completed,
           canceled: scriptParams.canceled
         },

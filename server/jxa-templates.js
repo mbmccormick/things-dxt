@@ -587,6 +587,18 @@ function run(argv) {
       }
     }
     
+    // Handle checklist items if provided
+    if (params.checklist_items !== undefined) {
+      if (params.checklist_items && params.checklist_items.length > 0) {
+        // Things 3 JXA doesn't have direct checklist support
+        // We'll append them to notes as a workaround
+        const checklistText = params.checklist_items.map(item => '- [ ] ' + item).join('\\\\n');
+        const currentNotes = todo.notes() || '';
+        todo.notes = currentNotes + (currentNotes ? '\\\\n\\\\n' : '') + checklistText;
+      }
+      // Note: We don't handle removing checklist items since they're part of notes
+    }
+    
     if (params.completed !== undefined) {
       todo.status = params.completed ? 'completed' : 'open';
     }

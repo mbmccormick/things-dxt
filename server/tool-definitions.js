@@ -324,6 +324,11 @@ export const TOOL_DEFINITIONS = [
           items: { type: "string" },
           description: "Optional array of tag names to set",
         },
+        checklist_items: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional array of checklist items to set",
+        },
         completed: {
           type: "boolean",
           description: "Mark as completed",
