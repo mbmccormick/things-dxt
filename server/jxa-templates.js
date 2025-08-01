@@ -40,12 +40,8 @@ export class JXATemplates {
           const scheduleDate = new Date(dateString);
           things.schedule(item, {for: scheduleDate});
         } catch (e) {
-          // If scheduling fails, fall back to direct assignment
-          try {
-            item.activationDate = new Date(dateString);
-          } catch (e2) {
-            // Ignore if both methods fail
-          }
+          // Schedule command failed - activation date is read-only per API
+          // No fallback possible since activationDate property is read-only
         }
       }
     }
@@ -564,12 +560,8 @@ function run(argv) {
       if (params.when) {
         scheduleItem(todo, params.when);
       } else {
-        // Remove scheduling by setting to null
-        try {
-          todo.activationDate = null;
-        } catch (e) {
-          // Ignore if setting to null fails
-        }
+        // Cannot remove scheduling - activation date is read-only per API
+        // Would need to use different approach (e.g., move to Someday list)
       }
     }
     
@@ -654,12 +646,8 @@ function run(argv) {
       if (params.when) {
         scheduleItem(project, params.when);
       } else {
-        // Remove scheduling by setting to null
-        try {
-          project.activationDate = null;
-        } catch (e) {
-          // Ignore if setting to null fails
-        }
+        // Cannot remove scheduling - activation date is read-only per API
+        // Would need to use different approach (e.g., move to Someday list)
       }
     }
     
