@@ -113,8 +113,9 @@ A comprehensive Claude Desktop Extension that provides seamless integration with
 
 #### `update_todo` - Update existing todo
 **Required**: `id`  
-**Optional**: `title`, `notes`, `when`, `deadline`, `tags`, `completed`, `canceled`
+**Optional**: `title`, `notes`, `when`, `deadline`, `tags`, `checklist_items`, `completed`, `canceled`
 - `tags`: Array of tag names. Use `[]` to remove all tags
+- `checklist_items`: Array of checklist items. Appends to existing notes as formatted list
 
 #### `update_project` - Update existing project
 **Required**: `id`  
@@ -214,8 +215,9 @@ things-dxt/
     ├── run-tests.js           # Test runner
     ├── validation.test.js     # Input validation tests
     ├── parameter-mapping.test.js # Parameter mapping tests
-    ├── data-parser.test.js    # Data parsing tests
-    ├── applescript-schedule.test.js # Date scheduling tests
+    ├── response-formatter.test.js # Response formatting tests
+    ├── area-id-support.test.js # Area ID parameter tests
+    ├── project-todos.test.js  # Project creation with todos tests
     └── tags-handling.test.js  # Tag handling tests
 ```
 

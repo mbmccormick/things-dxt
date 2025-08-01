@@ -3,9 +3,9 @@
  */
 
 import { strict as assert } from 'assert';
-import { ParameterMapper, AppleScriptSanitizer } from '../server/utils.js';
+import { ParameterMapper } from '../server/utils.js';
 
-console.log('Testing ParameterMapper and AppleScriptSanitizer...\n');
+console.log('Testing ParameterMapper...\n');
 
 // Test 1: Basic parameter mapping
 try {
@@ -59,43 +59,7 @@ try {
   process.exit(1);
 }
 
-// Test 4: AppleScript sanitization - quotes
-try {
-  const input = 'Task with "quotes" and \'apostrophes\'';
-  const result = AppleScriptSanitizer.sanitizeString(input);
-  assert.equal(result, 'Task with \\"quotes\\" and \'apostrophes\'');
-  console.log('✅ AppleScript quote escaping');
-} catch (error) {
-  console.log('❌ AppleScript quote escaping:', error.message);
-  process.exit(1);
-}
-
-// Test 5: AppleScript sanitization - newlines
-try {
-  const input = 'Line 1\nLine 2\r\nLine 3';
-  const result = AppleScriptSanitizer.sanitizeString(input);
-  assert.equal(result, 'Line 1\\nLine 2\\nLine 3');
-  console.log('✅ AppleScript newline escaping');
-} catch (error) {
-  console.log('❌ AppleScript newline escaping:', error.message);
-  process.exit(1);
-}
-
-// Test 6: Script building with parameters
-try {
-  const template = 'tell application "Things3" to make new to do with properties {name: "{{name}}", notes: "{{notes}}"}';
-  const params = { name: 'Test "task"', notes: 'Notes with\nnewline' };
-  
-  const result = AppleScriptSanitizer.buildScript(template, params);
-  assert(result.includes('name: "Test \\"task\\""'));
-  assert(result.includes('notes: "Notes with\\nnewline"'));
-  console.log('✅ Script building with sanitization');
-} catch (error) {
-  console.log('❌ Script building with sanitization:', error.message);
-  process.exit(1);
-}
-
-// Test 7: Tag array mapping
+// Test 4: Tag array mapping
 try {
   const args = {
     title: 'Task with tags',

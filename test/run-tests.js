@@ -41,11 +41,9 @@ async function main() {
   const testFiles = [
     path.join(__dirname, 'validation.test.js'),
     path.join(__dirname, 'parameter-mapping.test.js'),
-    path.join(__dirname, 'data-parser.test.js'),
-    path.join(__dirname, 'applescript-schedule.test.js'),
+    path.join(__dirname, 'response-formatter.test.js'),
     path.join(__dirname, 'tags-handling.test.js'),
     path.join(__dirname, 'project-todos.test.js'),
-    path.join(__dirname, 'apostrophe-escaping.test.js'),
     path.join(__dirname, 'area-id-support.test.js')
   ];
   

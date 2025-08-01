@@ -2,16 +2,47 @@
  * Utility classes for Things 3 MCP Server
  * 
  * Key Design Decisions:
- * - User-friendly parameter mapping: due_date (user) -> activation_date (Things), deadline (user) -> due_date (Things)
+ * - User-friendly parameter mapping: when (user) -> activation_date (Things), deadline (user) -> due_date (Things)
  * - Centralized validation and mapping via ParameterMapper
  * - Consistent error handling and logging patterns
- * - Clean separation of concerns between validation, scripting, and data parsing
+ * - Clean separation of concerns between validation, JXA execution, and data parsing
  */
 
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { SERVER_CONFIG } from "./server-config.js";
+
+/**
+ * Custom error classes for JXA operations (following Raycast pattern)
+ */
+export class JXAError extends Error {
+  constructor(message, code, originalError) {
+    super(message);
+    this.name = 'JXAError';
+    this.code = code;
+    this.originalError = originalError;
+  }
+}
+
+export class ThingsNotRunningError extends JXAError {
+  constructor() {
+    super('Things 3 is not running. Please launch Things 3 and try again.', 'THINGS_NOT_RUNNING');
+  }
+}
+
+export class JXAExecutionError extends JXAError {
+  constructor(message, originalError) {
+    super(`JXA execution failed: ${message}`, 'JXA_EXECUTION_ERROR', originalError);
+  }
+}
+
+export class JXAPermissionError extends JXAError {
+  constructor() {
+    super('Permission denied. Please grant accessibility permissions for this application.', 'PERMISSION_DENIED');
+  }
+}
 
 export class ThingsValidator {
-  static validateStringInput(input, fieldName, maxLength = 1000) {
+  static validateStringInput(input, fieldName, maxLength = SERVER_CONFIG.validation.maxStringLength) {
     if (typeof input !== 'string') {
       throw new McpError(
         ErrorCode.InvalidParams,
@@ -33,11 +64,10 @@ export class ThingsValidator {
       );
     }
     
-    // Allow quotes and apostrophes since AppleScriptSanitizer handles proper escaping
     // Only reject truly dangerous patterns like script injection attempts
     const dangerousPatterns = [
       /tell\s+application/i,    // Prevents: tell application "System Events" 
-      /end\s+tell/i,            // Prevents: end tell (AppleScript block closure)
+      /end\s+tell/i,            // Prevents: end tell (legacy AppleScript pattern)
       /set\s+\w+\s+to/i,        // Prevents: set variable to malicious value
       /do\s+shell\s+script/i,   // Prevents: do shell script "rm -rf /"
       /osascript/i              // Prevents: osascript command injection
@@ -55,7 +85,7 @@ export class ThingsValidator {
     return input.trim();
   }
   
-  static validateArrayInput(input, fieldName, maxItems = 50) {
+  static validateArrayInput(input, fieldName, maxItems = SERVER_CONFIG.validation.maxArrayLength) {
     if (!Array.isArray(input)) {
       throw new McpError(
         ErrorCode.InvalidParams,
@@ -121,9 +151,9 @@ export class ThingsValidator {
 
 export class DateConverter {
   /**
-   * Convert YYYY-MM-DD date to AppleScript date format
+   * Convert YYYY-MM-DD date to JavaScript Date object for JXA
    */
-  static toAppleScriptDate(isoDate) {
+  static toJavaScriptDate(isoDate) {
     // Validate input format
     if (!isoDate || typeof isoDate !== 'string') {
       throw new Error('Date must be a non-empty string');
@@ -142,21 +172,7 @@ export class DateConverter {
       throw new Error(`Invalid date: ${isoDate}`);
     }
     
-    const months = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
-    ];
-    
-    const month = months[date.getMonth()];
-    const day = date.getDate();
-    const year = date.getFullYear();
-    
-    // Validate year range (AppleScript has limitations)
-    if (year < 1904 || year > 2040) {
-      throw new Error(`Year ${year} is outside AppleScript's supported range (1904-2040)`);
-    }
-    
-    return `${month} ${day}, ${year}`;
+    return date;
   }
 }
 
@@ -194,18 +210,18 @@ export class StatusValidator {
   }
 
   /**
-   * Convert status to AppleScript filter
+   * Convert status to JXA filter condition
    */
   static statusToFilter(status) {
     switch(status) {
       case "open":
-        return "status is open";
+        return "open";
       case "completed":
-        return "status is completed";
+        return "completed";
       case "canceled":
-        return "status is canceled";
+        return "canceled";
       default:
-        return "status is open";
+        return "open";
     }
   }
 }
@@ -222,7 +238,7 @@ export class ParameterMapper {
             (args.name ? ThingsValidator.validateStringInput(args.name, "name") : null),
       title: args.title ? ThingsValidator.validateStringInput(args.title, "title") : null,
       id: args.id ? ThingsValidator.validateStringInput(args.id, "id") : null,
-      notes: args.notes ? ThingsValidator.validateStringInput(args.notes, "notes", 10000) : null,
+      notes: args.notes ? ThingsValidator.validateStringInput(args.notes, "notes", SERVER_CONFIG.validation.maxNotesLength) : null,
       
       // Map user-friendly parameters to internal Things 3 parameters
       // User terminology -> Things 3 terminology:
@@ -256,96 +272,6 @@ export class ParameterMapper {
     
     // Remove null values to keep the object clean
     return Object.fromEntries(Object.entries(result).filter(([_, v]) => v !== null));
-  }
-}
-
-export class ParameterBuilder {
-  /**
-   * Build AppleScript parameters with tags and optional date formatting
-   */
-  static buildParameters(baseParams, tags = null, dueDate = null, activationDate = null) {
-    const buildParams = { ...baseParams };
-    
-    // Add individual tag parameters
-    if (tags && Array.isArray(tags)) {
-      tags.forEach((tag, index) => {
-        buildParams[`tag_${index}`] = tag;
-      });
-    }
-    
-    // Add individual todo parameters
-    if (baseParams.todos && Array.isArray(baseParams.todos)) {
-      baseParams.todos.forEach((todo, index) => {
-        buildParams[`todo_${index}`] = todo;
-      });
-    }
-    
-    // Add formatted due date parameter
-    if (dueDate) {
-      try {
-        buildParams.due_date_formatted = DateConverter.toAppleScriptDate(dueDate);
-      } catch (error) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `Invalid due date: ${error.message}`
-        );
-      }
-    }
-    
-    // Add formatted activation date parameter
-    if (activationDate) {
-      try {
-        buildParams.activation_date_formatted = DateConverter.toAppleScriptDate(activationDate);
-      } catch (error) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `Invalid activation date: ${error.message}`
-        );
-      }
-    }
-    
-    return buildParams;
-  }
-}
-
-export class AppleScriptSanitizer {
-  /**
-   * Sanitize a string for safe inclusion in AppleScript
-   * @param {*} input - The input to sanitize (will be converted to string)
-   * @returns {string} - Escaped string safe for AppleScript
-   */
-  static sanitizeString(input) {
-    if (typeof input !== 'string') {
-      return '';
-    }
-    
-    // Escape dangerous characters for AppleScript
-    // Order matters: backslashes must be escaped first
-    // Note: Apostrophes don't need escaping inside double-quoted AppleScript strings
-    return input
-      .replace(/\\/g, '\\\\')     // Escape backslashes: \ -> \\
-      .replace(/"/g, '\\"')       // Escape double quotes: " -> \"
-      .replace(/\r?\n/g, '\\n')   // Convert newlines to \n
-      .replace(/\t/g, '\\t');     // Convert tabs to \t
-  }
-  
-  /**
-   * Build an AppleScript from a template, safely replacing placeholders
-   * @param {string} template - AppleScript template with {{placeholder}} markers
-   * @param {Object} params - Parameters to replace in the template
-   * @returns {string} - Complete AppleScript with sanitized parameters
-   */
-  static buildScript(template, params = {}) {
-    let script = template;
-    
-    // Replace parameters safely
-    for (const [key, value] of Object.entries(params)) {
-      const placeholder = `{{${key}}}`;
-      const sanitizedValue = this.sanitizeString(String(value));
-      script = script.replace(new RegExp(placeholder, 'g'), sanitizedValue);
-    }
-    
-    return script;
   }
 }
 

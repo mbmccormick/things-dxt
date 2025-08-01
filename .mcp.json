@@ -1,6 +1,6 @@
 {
     "mcpServers": {
-        "shared-server": {
+        "things-dxt": {
             "type": "stdio",
             "command": "node",
             "args": [

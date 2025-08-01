@@ -8,7 +8,7 @@
  * - User-friendly date parameter mapping (when = when to work on, deadline = when actually due)
  * - Comprehensive CRUD operations for todos, projects, and areas
  * - Robust error handling and validation
- * - Centralized parameter mapping and AppleScript execution
+ * - Centralized parameter mapping and JXA execution
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -22,8 +22,8 @@ import {
 import { exec } from "child_process";
 import { promisify } from "util";
 
-import { ThingsLogger, ParameterBuilder, AppleScriptSanitizer } from "./utils.js";
-import { AppleScriptTemplates } from "./applescript-templates.js";
+import { ThingsLogger, ThingsNotRunningError, JXAExecutionError, JXAPermissionError } from "./utils.js";
+import { JXATemplates } from "./jxa-templates.js";
 import { TOOL_DEFINITIONS } from "./tool-definitions.js";
 import { ToolHandlers } from "./tool-handlers.js";
 import { SERVER_CONFIG, ERROR_MESSAGES } from "./server-config.js";
@@ -45,8 +45,8 @@ class ThingsExtension {
 
       // Initialize tool handlers with bound methods
       this.toolHandlers = new ToolHandlers(
-        this.executeAppleScript.bind(this),
-        this.executeThingsScript.bind(this)
+        this.executeJXA.bind(this),
+        this.executeThingsJXA.bind(this)
       );
 
       this.setupToolHandlers();
@@ -57,28 +57,6 @@ class ThingsExtension {
     }
   }
 
-  /**
-   * Execute AppleScript template with parameters and handle common patterns
-   */
-  async executeThingsScript(template, scriptParams, operationName) {
-    const buildParams = ParameterBuilder.buildParameters(
-      scriptParams, 
-      scriptParams.tags, 
-      scriptParams.due_date, 
-      scriptParams.activation_date
-    );
-    const script = AppleScriptSanitizer.buildScript(template, buildParams);
-    
-    try {
-      return await this.executeAppleScript(script);
-    } catch (error) {
-      ThingsLogger.error(`${operationName} failed`, { 
-        name: scriptParams.name || scriptParams.title,
-        error: error.message 
-      });
-      throw error;
-    }
-  }
 
   setupErrorHandling() {
     this.server.onerror = (error) => {
@@ -102,59 +80,146 @@ class ThingsExtension {
     });
   }
 
-  async executeAppleScript(script, timeout = SERVER_CONFIG.applescript.timeout) {
+
+  /**
+   * Execute JavaScript for Automation (JXA) with parameters
+   * @param {string} script - The JXA script to execute
+   * @param {Record<string, any>} params - Parameters to pass to the script (default: {})
+   * @param {number} timeout - Timeout in milliseconds (default from SERVER_CONFIG.jxa.timeout)
+   * @returns {Promise<{success: boolean, data?: any, error?: {type: string, message: string, code: number}}>} Parsed JSON response from the script
+   * @throws {JXAExecutionError} When JXA script execution fails
+   * @throws {JXAPermissionError} When accessibility permissions are denied
+   * @throws {McpError} When script size exceeds limits or other validation fails
+   */
+  async executeJXA(script, params = {}, timeout = SERVER_CONFIG.jxa.timeout) {
     try {
-      ThingsLogger.debug("Executing AppleScript", { scriptLength: script.length });
+      // Validate script size to prevent DoS attacks
+      if (script.length > SERVER_CONFIG.validation.maxScriptSize) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `Generated JXA script too large: ${script.length} bytes (max: ${SERVER_CONFIG.validation.maxScriptSize})`
+        );
+      }
+
+      ThingsLogger.debug("Executing JXA script", { 
+        scriptLength: script.length,
+        hasParams: Object.keys(params).length > 0,
+        scriptPreview: script.substring(0, 100) + '...'
+      });
       
-      // Use double quotes for shell command to avoid conflicts with AppleScript single quote escaping
-      const escapedScript = script.replace(/"/g, '\\"');
-      const command = `osascript -e "${escapedScript}"`;
+      // JXA script escaping - handle multi-line scripts properly
+      // Replace single quotes with a special sequence that works in shell
+      const escapedScript = script.replace(/'/g, "'\"'\"'");
+      
+      // Optimize parameter handling - avoid JSON.stringify for empty objects
+      const hasParams = Object.keys(params).length > 0;
+      let command;
+      
+      if (hasParams) {
+        const jsonParams = JSON.stringify(params);
+        // Parameter escaping for shell
+        const escapedParams = jsonParams.replace(/'/g, "'\"'\"'");
+        command = `osascript -l JavaScript -e '${escapedScript}' '${escapedParams}'`;
+      } else {
+        // No parameters - skip JSON processing entirely
+        command = `osascript -l JavaScript -e '${escapedScript}' '{}'`;
+      }
       
       const { stdout, stderr } = await execAsync(command, {
         timeout,
-        maxBuffer: SERVER_CONFIG.applescript.maxBuffer,
+        maxBuffer: SERVER_CONFIG.jxa.maxBuffer,
       });
       
       if (stderr) {
-        ThingsLogger.warn("AppleScript stderr output", { stderr });
-        throw new Error(`AppleScript error: ${stderr}`);
+        ThingsLogger.warn("JXA stderr output", { stderr });
+        throw new Error(`JXA error: ${stderr}`);
       }
       
       const result = stdout.trim();
-      ThingsLogger.debug("AppleScript execution completed", { resultLength: result.length });
-      return result;
+      ThingsLogger.debug("JXA execution completed", { resultLength: result.length });
+      
+      // Parse the JSON response
+      try {
+        const parsed = JSON.parse(result);
+        
+        // Check if the script returned an error
+        if (parsed.success === false && parsed.error) {
+          throw new JXAExecutionError(parsed.error.message || 'JXA script returned an error');
+        }
+        
+        return parsed;
+      } catch (parseError) {
+        ThingsLogger.error("Failed to parse JXA response", { 
+          response: result,
+          error: parseError.message 
+        });
+        throw new JXAExecutionError(`Invalid JXA response: ${parseError.message}`, parseError);
+      }
     } catch (error) {
-      ThingsLogger.error("AppleScript execution failed", { 
+      ThingsLogger.error("JXA execution failed", { 
         error: error.message,
-        timeout: error.code === 'ETIMEDOUT'
+        code: error.code,
+        timeout: error.code === 'ETIMEDOUT',
+        stderr: error.stderr,
+        stdout: error.stdout
       });
       
       if (error.code === 'ETIMEDOUT') {
         throw new McpError(
           ErrorCode.InternalError,
-          ERROR_MESSAGES.APPLESCRIPT_TIMEOUT
+          ERROR_MESSAGES.JXA_TIMEOUT
         );
       }
       
       throw new McpError(
         ErrorCode.InternalError,
-        `${ERROR_MESSAGES.APPLESCRIPT_FAILED}: ${error.message}`
+        `JXA execution failed: ${error.message}`
       );
+    }
+  }
+
+  /**
+   * Execute JXA template for Things operations
+   * @param {() => string} templateFunction - JXA template function that returns a script string
+   * @param {Record<string, any>} params - Parameters to pass to the script
+   * @param {string} operationName - Name of the operation for logging
+   * @returns {Promise<any>} Response data from the script (extracted from success response)
+   * @throws {Error} When JXA execution fails or returns error response
+   */
+  async executeThingsJXA(templateFunction, params, operationName) {
+    try {
+      const script = templateFunction(params);
+      const result = await this.executeJXA(script, params);
+      
+      if (result.success && result.data) {
+        return result.data;
+      }
+      
+      throw new Error(result.error?.message || 'Unknown error occurred');
+    } catch (error) {
+      ThingsLogger.error(`${operationName} failed`, { 
+        params,
+        error: error.message 
+      });
+      throw error;
     }
   }
 
   async validateThingsRunning() {
     try {
-      const script = AppleScriptTemplates.isThingsRunning();
-      const result = await this.executeAppleScript(script);
-      if (result !== "true") {
-        throw new McpError(
-          ErrorCode.InternalError,
-          ERROR_MESSAGES.THINGS_NOT_RUNNING
-        );
+      const result = await this.executeJXA(JXATemplates.isThingsRunning(), {});
+      if (!result.success || !result.data) {
+        throw new ThingsNotRunningError();
       }
     } catch (error) {
-      if (error instanceof McpError) throw error;
+      if (error instanceof ThingsNotRunningError) throw error;
+      
+      // Log the actual error for debugging
+      ThingsLogger.error("Things 3 check failed", { 
+        error: error.message,
+        stack: error.stack
+      });
+      
       throw new McpError(
         ErrorCode.InternalError,
         ERROR_MESSAGES.THINGS_CHECK_FAILED
@@ -173,6 +238,15 @@ class ThingsExtension {
       const { name, arguments: args } = request.params;
 
       try {
+        // Validate request size to prevent DoS attacks
+        const requestSize = JSON.stringify(request).length;
+        if (requestSize > SERVER_CONFIG.validation.maxRequestSize) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Request too large: ${requestSize} bytes (max: ${SERVER_CONFIG.validation.maxRequestSize})`
+          );
+        }
+
         await this.validateThingsRunning();
 
         // Route to appropriate handler method
@@ -197,32 +271,34 @@ class ThingsExtension {
     });
   }
 
-  getHandlerMethod(toolName) {
-    const handlerMap = {
-      "add_todo": this.toolHandlers.addTodo,
-      "add_project": this.toolHandlers.addProject,
-      "get_areas": this.toolHandlers.getAreas,
-      "get_todos": this.toolHandlers.getTodos,
-      "get_projects": this.toolHandlers.getProjects,
-      "get_inbox": this.toolHandlers.getInbox,
-      "get_today": this.toolHandlers.getToday,
-      "get_upcoming": this.toolHandlers.getUpcoming,
-      "get_anytime": this.toolHandlers.getAnytime,
-      "get_someday": this.toolHandlers.getSomeday,
-      "get_logbook": this.toolHandlers.getLogbook,
-      "get_trash": this.toolHandlers.getTrash,
-      "get_tags": this.toolHandlers.getTags,
-      "get_tagged_items": this.toolHandlers.getTaggedItems,
-      "search_todos": this.toolHandlers.searchTodos,
-      "search_advanced": this.toolHandlers.searchAdvanced,
-      "get_recent": this.toolHandlers.getRecent,
-      "update_todo": this.toolHandlers.updateTodo,
-      "update_project": this.toolHandlers.updateProject,
-      "show_item": this.toolHandlers.showItem,
-      "search_items": this.toolHandlers.searchItems,
-    };
+  // Static handler method mapping for O(1) lookup performance
+  static HANDLER_METHOD_MAP = new Map([
+    ["add_todo", "addTodo"],
+    ["add_project", "addProject"],
+    ["get_areas", "getAreas"],
+    ["get_todos", "getTodos"],
+    ["get_projects", "getProjects"],
+    ["get_inbox", "getInbox"],
+    ["get_today", "getToday"],
+    ["get_upcoming", "getUpcoming"],
+    ["get_anytime", "getAnytime"],
+    ["get_someday", "getSomeday"],
+    ["get_logbook", "getLogbook"],
+    ["get_trash", "getTrash"],
+    ["get_tags", "getTags"],
+    ["get_tagged_items", "getTaggedItems"],
+    ["search_todos", "searchTodos"],
+    ["search_advanced", "searchAdvanced"],
+    ["get_recent", "getRecent"],
+    ["update_todo", "updateTodo"],
+    ["update_project", "updateProject"],
+    ["show_item", "showItem"],
+    ["search_items", "searchItems"],
+  ]);
 
-    return handlerMap[toolName];
+  getHandlerMethod(toolName) {
+    const methodName = this.constructor.HANDLER_METHOD_MAP.get(toolName);
+    return methodName ? this.toolHandlers[methodName] : null;
   }
 
   async run() {
