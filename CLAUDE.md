@@ -12,8 +12,8 @@ npm test
 # Run individual test suites  
 npm run test:validation      # Input validation tests
 npm run test:parameter      # Parameter mapping tests  
-npm run test:data-parser    # Data parsing tests
-npm run test:applescript    # AppleScript scheduling tests
+npm run test:response-formatter  # Response formatting tests
+npm run test:jxa             # JXA-specific tests
 
 # Syntax validation
 npm run validate
@@ -33,14 +33,14 @@ npm start
 
 ## Architecture Overview
 
-This is a Claude Desktop Extension (DXT) that integrates with Things 3 task manager via AppleScript automation. The architecture follows a modular design with clear separation of concerns:
+This is a Claude Desktop Extension (DXT) that integrates with Things 3 task manager via JavaScript for Automation (JXA). The architecture follows a modular design with clear separation of concerns:
 
 ### Core Components
 
 **`server/index.js`** - Main MCP server entry point
 - Handles MCP protocol communication
-- Manages AppleScript execution with proper escaping and timeouts
-- Coordinates between tool handlers and AppleScript templates
+- Manages JXA execution with JSON parameter passing and timeouts
+- Coordinates between tool handlers and JXA templates
 
 **`server/tool-definitions.js`** - MCP tool schema definitions
 - Defines all 21 available tools (add_todo, get_inbox, search_items, etc.)
@@ -49,24 +49,26 @@ This is a Claude Desktop Extension (DXT) that integrates with Things 3 task mana
 
 **`server/tool-handlers.js`** - Tool implementation logic
 - Contains handler methods for each MCP tool
-- Orchestrates parameter mapping, AppleScript execution, and response formatting
+- Orchestrates parameter mapping, JXA execution, and response formatting
 - Handles error cases and validation
 
-**`server/applescript-templates.js`** - AppleScript generation
-- Contains static methods that generate AppleScript code
-- Critical: Uses `schedule` command for setting activation dates, not direct property assignment
-- Handles Things 3's specific AppleScript syntax requirements
+**`server/jxa-templates.js`** - JXA (JavaScript for Automation) generation
+- Contains JXA functions for all 21 MCP tools
+- Native JavaScript syntax with JSON input/output
+- Eliminates complex string escaping issues
+- Better error handling with structured responses
+- Uses `schedule` command for setting activation dates correctly
 
 **`server/utils.js`** - Validation and utilities
 - `ThingsValidator`: Input validation with security checks
 - `ParameterMapper`: Maps user parameters to Things 3 internal terminology
-- `AppleScriptSanitizer`: Prevents injection attacks via proper escaping
-- `DateConverter`: Converts YYYY-MM-DD to AppleScript date format
+- `DateConverter`: Converts YYYY-MM-DD to JavaScript Date objects
+- `ThingsLogger`: Centralized logging functionality
 
-**`server/data-parser.js`** - Response parsing
-- Parses tab-separated AppleScript output into structured JSON
-- Maps Things 3 internal field names to user-friendly names
-- Handles todos, projects, areas, and search results
+**`server/response-formatter.js`** - Response formatting
+- Creates standardized MCP responses from JXA execution results
+- Formats both success and error responses consistently
+- Handles structured JSON output from JXA templates
 
 ### Key Design Patterns
 
@@ -74,90 +76,98 @@ This is a Claude Desktop Extension (DXT) that integrates with Things 3 task mana
 - `when` (user) → `activation_date` (Things 3) = when scheduled to work on
 - `deadline` (user) → `due_date` (Things 3) = when actually due
 
-**AppleScript Execution Flow**:
+**JXA Execution Flow**:
 1. User parameters → `ParameterMapper.validateAndMapParameters()`
-2. Mapped parameters → `AppleScriptTemplates.{method}()`
-3. Template + parameters → `AppleScriptSanitizer.buildScript()`
-4. Script execution → `executeAppleScript()` with timeout and security
-5. Raw output → `DataParser.parse{Type}()` → structured response
+2. Validated parameters → `JXATemplates.{method}()` → JXA script generation
+3. Script execution → `executeJXA()` with JSON parameters and timeout
+4. JSON response → direct use (no complex parsing needed)
+5. Structured response → `ResponseFormatter.createSuccessResponse()`
 
-**Error Handling**: All errors are wrapped in `McpError` with appropriate error codes. AppleScript failures are caught and converted to user-friendly messages.
+**Error Handling**: All errors are wrapped in `McpError` with appropriate error codes. JXA failures are caught and converted to user-friendly messages with proper error types.
+
+**Security**: Input validation prevents script injection attacks through `ThingsValidator` with pattern detection for dangerous JXA/AppleScript constructs.
 
 ## Critical Implementation Details
 
-### AppleScript Date Scheduling
-- **Never** use `set activation date of item to date "..."` - this will fail
-- **Always** use `schedule item for date "..."` command
+### JXA Date Scheduling
+- Uses JavaScript `Date` objects for proper date handling
+- The `schedule` command is used for setting activation dates: `schedule item for date "..."`
 - For creation: create item first, then schedule if needed
 - For updates: use `schedule` command directly on existing item
+- Dates are converted from YYYY-MM-DD format to JavaScript Date objects
 
 ### Object References
-- Use `to do id "..."` not `first to do whose id "..."`
-- Use `project id "..."` not `first project whose id "..."`
-- The `whose` syntax causes parsing errors in AppleScript
+- Use direct object access: `things.toDos.byId("...")`
+- Use `things.projects.byId("...")` for project references
+- Use `things.areas.byId("...")` for area references
+- JXA provides cleaner object access than AppleScript's `whose` syntax
 
-### AppleScript String Escaping
-**CRITICAL**: Proper AppleScript escaping is essential to prevent syntax errors and security issues.
+### JXA Parameter Passing
+**CRITICAL**: JXA uses JSON for parameter passing, eliminating string escaping issues.
 
 **Key Principles**:
-- **Apostrophes**: Do NOT escape apostrophes (`'`) inside double-quoted AppleScript strings
-- **Double Quotes**: Escape double quotes (`"`) as `\"` for shell command compatibility
-- **Shell vs AppleScript**: Use different escaping strategies for different layers
+- **Parameters**: Pass complex objects as JSON via `argv[0]`
+- **Execution**: Use `osascript -l JavaScript -e 'script' 'params'`
+- **Responses**: Return structured JSON from JXA functions
+- **Error Handling**: Catch exceptions and return structured error objects
 
 **Implementation Details**:
 ```javascript
-// ✅ CORRECT: AppleScript sanitization (server/utils.js)
-static sanitizeString(input) {
-  return input
-    .replace(/\\/g, '\\\\')     // Escape backslashes: \ -> \\
-    .replace(/"/g, '\\"')       // Escape double quotes: " -> \"
-    .replace(/\r?\n/g, '\\n')   // Convert newlines to \n
-    .replace(/\t/g, '\\t');     // Convert tabs to \t
-    // Note: NO apostrophe escaping - apostrophes work fine in AppleScript double quotes
+// ✅ CORRECT: JXA execution (server/index.js)
+async executeJXA(script, params = {}) {
+  const jsonParams = JSON.stringify(params);
+  const escapedParams = jsonParams.replace(/'/g, "'\"'\"'");
+  const command = `osascript -l JavaScript -e '${script}' '${escapedParams}'`;
+  // ... execution logic
 }
 
-// ✅ CORRECT: Shell command execution (server/index.js)
-const escapedScript = script.replace(/"/g, '\\"');
-const command = `osascript -e "${escapedScript}"`;
+// ✅ CORRECT: JXA template structure (server/jxa-templates.js)
+static wrapScript(functionBody) {
+  return `
+function run(argv) {
+  try {
+    const params = argv[0] ? JSON.parse(argv[0]) : {};
+    const things = Application('com.culturedcode.ThingsMac');
+    ${functionBody}
+  } catch (error) {
+    return JSON.stringify({
+      success: false,
+      error: { message: error.message, type: error.name }
+    });
+  }
+}`;
+}
 ```
 
-**Common Mistakes to Avoid**:
-```javascript
-// ❌ WRONG: Don't escape apostrophes
-.replace(/'/g, "'\"'\"'")  // This breaks AppleScript syntax
-
-// ❌ WRONG: Don't use single quotes for shell commands
-const command = `osascript -e '${script}'`;  // Conflicts with AppleScript escaping
-```
-
-**Why This Works**:
-- AppleScript natively handles apostrophes inside double-quoted strings: `"Matt's iPhone"` ✅
-- Shell double quotes properly escape the AppleScript quotes: `osascript -e "tell application \"Things3\"..."`
-- No conflict between AppleScript apostrophes and shell quoting
-
-**Testing**: Always test with real apostrophes like `Matt's iPhone` to verify escaping works correctly.
+**Benefits of JXA**:
+- No complex string escaping required
+- Native JSON input/output 
+- JavaScript syntax is more maintainable
+- Better error handling with structured responses
+- Direct object manipulation without string templates
 
 ### Security Considerations
 - All user input goes through `ThingsValidator` to prevent injection
-- AppleScript dangerous patterns are detected and rejected
-- String escaping is handled by `AppleScriptSanitizer` (see above section)
-- AppleScript execution has timeouts and buffer limits
+- Dangerous patterns are detected for both JXA and AppleScript constructs
+- JXA execution has timeouts and buffer limits
+- JSON parameter passing prevents most injection attacks
 
 ### Testing Strategy
 - Unit tests cover validation, parameter mapping, and data parsing
-- AppleScript template tests verify correct command generation
-- No integration tests with actual Things 3 app
+- JXA template tests verify correct command generation
+- No integration tests with actual Things 3 app (by design)
 - Use `npm test` before committing changes
+- Manual testing can be done by running the server and testing with Things 3
 
 ## Tool Development Pattern
 
 To add a new tool:
 
-1. Add schema to `TOOL_DEFINITIONS` array
-2. Add handler method to `ToolHandlers` class
-3. Add routing in `index.js` `getHandlerMethod()`
-4. Add AppleScript template if needed
-5. Add unit tests
+1. Add schema to `TOOL_DEFINITIONS` array in `tool-definitions.js`
+2. Add JXA template method to `JXATemplates` class in `jxa-templates.js`
+3. Add handler method to `ToolHandlers` class in `tool-handlers.js`
+4. Add routing in `index.js` `getHandlerMethod()`
+5. Add unit tests for the new functionality
 6. Update documentation
 
 ## Version Bumping
@@ -177,11 +187,11 @@ The packaged DXT file will be created at `things-dxt.dxt` with the new version n
 
 ## Common Pitfalls
 
-- Don't use `first ... whose id` syntax in AppleScript templates
-- Don't try to set `activation_date` property directly
+- Don't try to set `activation_date` property directly - use the `schedule` command
 - Always validate user input through `ThingsValidator`
-- AppleScript output is tab-separated - account for this in parsing
-- Things 3 must be running for AppleScript to work
-- Date formats must be YYYY-MM-DD from user, converted to "Month Day, Year" for AppleScript
-- **NEVER escape apostrophes** in AppleScript strings - they work natively in double quotes
-- **ALWAYS use double quotes** for shell commands to avoid escaping conflicts
+- JXA returns structured JSON - don't try to parse tab-separated output
+- Things 3 must be running for JXA to work
+- Date formats must be YYYY-MM-DD from user, converted to JavaScript Date objects
+- Remember to handle JXA errors in the wrapped script template
+- Always use `JSON.stringify()` for JXA responses to ensure proper formatting
+- Be careful with parameter names - JXA uses camelCase while our API uses snake_case

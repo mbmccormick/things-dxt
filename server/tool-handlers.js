@@ -7,14 +7,14 @@
  */
 
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
-import { ThingsValidator, ParameterMapper, ThingsLogger, AppleScriptSanitizer } from "./utils.js";
-import { AppleScriptTemplates } from "./applescript-templates.js";
-import { DataParser } from "./data-parser.js";
+import { ThingsValidator, ParameterMapper, ThingsLogger } from "./utils.js";
+import { JXATemplates } from "./jxa-templates.js";
+import { ResponseFormatter } from "./response-formatter.js";
 
 export class ToolHandlers {
-  constructor(executeAppleScript, executeThingsScript) {
-    this.executeAppleScript = executeAppleScript;
-    this.executeThingsScript = executeThingsScript;
+  constructor(executeJXA, executeThingsJXA) {
+    this.executeJXA = executeJXA;
+    this.executeThingsJXA = executeThingsJXA;
   }
 
   async addTodo(args) {
@@ -22,16 +22,30 @@ export class ToolHandlers {
     
     ThingsLogger.info("Creating to-do", { name: scriptParams.name || scriptParams.title });
 
-    const scriptTemplate = AppleScriptTemplates.createTodo(scriptParams);
-    const result = await this.executeThingsScript(scriptTemplate, scriptParams, "Create todo");
+    const result = await this.executeThingsJXA(
+      JXATemplates.createTodo,
+      {
+        title: scriptParams.name || scriptParams.title,
+        notes: scriptParams.notes,
+        deadline: scriptParams.due_date,
+        when: scriptParams.activation_date,
+        list_id: scriptParams.list_id,
+        list_title: scriptParams.project,
+        area_id: scriptParams.area_id,
+        area_title: scriptParams.area,
+        tags: scriptParams.tags,
+        checklist_items: args.checklist_items
+      },
+      "Create todo"
+    );
     
     ThingsLogger.logAssignmentWarnings(scriptParams, "created");
-    ThingsLogger.info("To-do created successfully", { name: scriptParams.name || scriptParams.title, id: result });
+    ThingsLogger.info("To-do created successfully", { name: scriptParams.name || scriptParams.title, id: result.id });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       message: `Created to-do: ${scriptParams.name || scriptParams.title}`,
-      id: result,
+      id: result.id,
     });
   }
 
@@ -40,8 +54,20 @@ export class ToolHandlers {
     
     ThingsLogger.info("Creating project", { name: scriptParams.name || scriptParams.title });
 
-    const scriptTemplate = AppleScriptTemplates.createProject(scriptParams);
-    const result = await this.executeThingsScript(scriptTemplate, scriptParams, "Create project");
+    const result = await this.executeThingsJXA(
+      JXATemplates.createProject,
+      {
+        title: scriptParams.name || scriptParams.title,
+        notes: scriptParams.notes,
+        deadline: scriptParams.due_date,
+        when: scriptParams.activation_date,
+        area_id: scriptParams.area_id,
+        area_title: scriptParams.area,
+        tags: scriptParams.tags,
+        todos: args.todos
+      },
+      "Create project"
+    );
     
     if (scriptParams.area || scriptParams.area_title) {
       ThingsLogger.info("Project created with area assignment", { 
@@ -51,12 +77,12 @@ export class ToolHandlers {
       });
     }
     
-    ThingsLogger.info("Project created successfully", { name: scriptParams.name || scriptParams.title, id: result });
+    ThingsLogger.info("Project created successfully", { name: scriptParams.name || scriptParams.title, id: result.id });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       message: `Created project: ${scriptParams.name || scriptParams.title}`,
-      id: result,
+      id: result.id,
     });
   }
 
@@ -64,13 +90,15 @@ export class ToolHandlers {
     const includeItems = args.include_items !== undefined ? Boolean(args.include_items) : false;
     ThingsLogger.info("Getting areas", { includeItems });
 
-    const script = AppleScriptTemplates.getAreas();
-    const result = await this.executeAppleScript(script);
-    const areas = DataParser.parseAreas(result);
+    const areas = await this.executeThingsJXA(
+      () => JXATemplates.getAreas(includeItems),
+      {},
+      "Get areas"
+    );
     
     ThingsLogger.info("Retrieved areas successfully", { count: areas.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: areas.length,
       areas: areas,
@@ -83,13 +111,15 @@ export class ToolHandlers {
     
     ThingsLogger.info("Getting todos", { projectUuid, includeItems });
 
-    const script = AppleScriptTemplates.getItemsByStatus("todos", "open", "all");
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseTodos(result);
+    const todos = await this.executeThingsJXA(
+      JXATemplates.getTodos,
+      { project_uuid: projectUuid },
+      "Get todos"
+    );
     
     ThingsLogger.info("Retrieved todos successfully", { count: todos.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: todos.length,
       todos: todos,
@@ -101,13 +131,15 @@ export class ToolHandlers {
     
     ThingsLogger.info("Getting projects", { includeItems });
 
-    const script = AppleScriptTemplates.getItemsByStatus("projects", "open", null, null);
-    const result = await this.executeAppleScript(script);
-    const projects = DataParser.parseProjects(result);
+    const projects = await this.executeThingsJXA(
+      () => JXATemplates.getProjects(includeItems),
+      {},
+      "Get projects"
+    );
     
     ThingsLogger.info("Retrieved projects successfully", { count: projects.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: projects.length,
       projects: projects,
@@ -117,13 +149,15 @@ export class ToolHandlers {
   async getInbox(args) {
     ThingsLogger.info("Getting inbox todos");
 
-    const script = AppleScriptTemplates.getItemsByStatus("todos", "open", "inbox");
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseTodos(result);
+    const todos = await this.executeThingsJXA(
+      JXATemplates.getInbox,
+      {},
+      "Get inbox"
+    );
     
     ThingsLogger.info("Retrieved inbox todos successfully", { count: todos.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: todos.length,
       todos: todos,
@@ -133,13 +167,15 @@ export class ToolHandlers {
   async getToday(args) {
     ThingsLogger.info("Getting today todos");
 
-    const script = AppleScriptTemplates.getItemsByStatus("todos", "open", "today");
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseTodos(result);
+    const todos = await this.executeThingsJXA(
+      JXATemplates.getToday,
+      {},
+      "Get today"
+    );
     
     ThingsLogger.info("Retrieved today todos successfully", { count: todos.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: todos.length,
       todos: todos,
@@ -149,13 +185,15 @@ export class ToolHandlers {
   async getUpcoming(args) {
     ThingsLogger.info("Getting upcoming todos");
 
-    const script = AppleScriptTemplates.getItemsByStatus("todos", "open", "upcoming");
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseTodos(result);
+    const todos = await this.executeThingsJXA(
+      JXATemplates.getUpcoming,
+      {},
+      "Get upcoming"
+    );
     
     ThingsLogger.info("Retrieved upcoming todos successfully", { count: todos.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: todos.length,
       todos: todos,
@@ -165,13 +203,15 @@ export class ToolHandlers {
   async getAnytime(args) {
     ThingsLogger.info("Getting anytime todos");
 
-    const script = AppleScriptTemplates.getItemsByStatus("todos", "open", "anytime");
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseTodos(result);
+    const todos = await this.executeThingsJXA(
+      JXATemplates.getAnytime,
+      {},
+      "Get anytime"
+    );
     
     ThingsLogger.info("Retrieved anytime todos successfully", { count: todos.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: todos.length,
       todos: todos,
@@ -181,13 +221,15 @@ export class ToolHandlers {
   async getSomeday(args) {
     ThingsLogger.info("Getting someday todos");
 
-    const script = AppleScriptTemplates.getItemsByStatus("todos", "open", "someday");
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseTodos(result);
+    const todos = await this.executeThingsJXA(
+      JXATemplates.getSomeday,
+      {},
+      "Get someday"
+    );
     
     ThingsLogger.info("Retrieved someday todos successfully", { count: todos.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: todos.length,
       todos: todos,
@@ -200,31 +242,48 @@ export class ToolHandlers {
     
     ThingsLogger.info("Getting logbook todos", { period, limit });
 
-    const script = AppleScriptTemplates.getItemsByStatus("todos", "completed", "all");
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseTodos(result);
-    const limitedTodos = todos.slice(0, limit);
+    // Parse period string (e.g., "7d", "2w", "1m")
+    const match = period.match(/^(\d+)([dwmy])$/);
+    const daysBack = match ? this.parsePeriodToDays(parseInt(match[1]), match[2]) : 7;
     
-    ThingsLogger.info("Retrieved logbook todos successfully", { count: limitedTodos.length });
+    const todos = await this.executeThingsJXA(
+      () => JXATemplates.getLogbook(limit, daysBack),
+      {},
+      "Get logbook"
+    );
     
-    return DataParser.createSuccessResponse({
+    ThingsLogger.info("Retrieved logbook todos successfully", { count: todos.length });
+    
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       period: period,
-      count: limitedTodos.length,
-      todos: limitedTodos,
+      count: todos.length,
+      todos: todos,
     });
+  }
+
+  parsePeriodToDays(value, unit) {
+    switch(unit) {
+      case 'd': return value;
+      case 'w': return value * 7;
+      case 'm': return value * 30;
+      case 'y': return value * 365;
+      default: return 7;
+    }
   }
 
   async getTrash(args) {
     ThingsLogger.info("Getting trashed todos");
 
-    const script = AppleScriptTemplates.getItemsByStatus("todos", "canceled", "all");
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseTodos(result);
+    const todos = await this.executeThingsJXA(
+      JXATemplates.getTrash,
+      {},
+      "Get trash"
+    );
     
     ThingsLogger.info("Retrieved trashed todos successfully", { count: todos.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: todos.length,
       todos: todos,
@@ -234,13 +293,15 @@ export class ToolHandlers {
   async getTags(args) {
     ThingsLogger.info("Getting tags");
 
-    const script = AppleScriptTemplates.getTags();
-    const result = await this.executeAppleScript(script);
-    const tags = result.split('\n').filter(tag => tag.trim() !== '');
+    const tags = await this.executeThingsJXA(
+      JXATemplates.getTags,
+      {},
+      "Get tags"
+    );
     
     ThingsLogger.info("Retrieved tags successfully", { count: tags.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       count: tags.length,
       tags: tags,
@@ -252,34 +313,15 @@ export class ToolHandlers {
     
     ThingsLogger.info("Getting tagged items", { tagTitle });
 
-    const script = AppleScriptSanitizer.buildScript(`
-      tell application "Things3"
-        set itemList to {}
-        repeat with aTodo in to dos
-          repeat with aTag in tags of aTodo
-            if name of aTag is "{{tag_title}}" then
-              set end of itemList to name of aTodo
-              exit repeat
-            end if
-          end repeat
-        end repeat
-        return my listToString(itemList)
-      end tell
-      
-      on listToString(lst)
-        set AppleScript's text item delimiters to "\\n"
-        set theString to lst as string
-        set AppleScript's text item delimiters to ""
-        return theString
-      end listToString
-    `, { tag_title: tagTitle });
-    
-    const result = await this.executeAppleScript(script);
-    const items = result.split('\n').filter(item => item.trim() !== '');
+    const items = await this.executeThingsJXA(
+      JXATemplates.getTaggedItems,
+      { tag_title: tagTitle },
+      "Get tagged items"
+    );
     
     ThingsLogger.info("Retrieved tagged items successfully", { count: items.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       tag: tagTitle,
       count: items.length,
@@ -292,17 +334,18 @@ export class ToolHandlers {
     
     ThingsLogger.info("Searching todos", { query: validatedQuery });
 
-    const todoScript = AppleScriptTemplates.searchTodos(validatedQuery);
-    const script = AppleScriptSanitizer.buildScript(todoScript, { query: validatedQuery });
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseSearchResults(result, 'todo');
+    const todos = await this.executeThingsJXA(
+      JXATemplates.searchTodos,
+      { query: validatedQuery },
+      "Search todos"
+    );
     
     ThingsLogger.info("Todo search completed successfully", { 
       query: validatedQuery, 
       count: todos.length 
     });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       query: validatedQuery,
       count: todos.length,
@@ -319,63 +362,17 @@ export class ToolHandlers {
     
     ThingsLogger.info("Advanced search", { query: validatedQuery, tags, completed, canceled, trashed });
 
-    // Build status filter
-    let statusFilters = [];
-    if (!completed && !canceled && !trashed) {
-      statusFilters.push("status is open");
-    } else {
-      if (completed) statusFilters.push("status is completed");
-      if (canceled) statusFilters.push("status is canceled"); 
-      if (!completed && !canceled) statusFilters.push("status is open");
-    }
-    
-    const statusFilter = statusFilters.length > 1 ? 
-      `(${statusFilters.join(" or ")})` : 
-      statusFilters[0];
-
-    // Build tag filter
-    const tagFilter = tags.length > 0 ? 
-      tags.map(tag => `"${tag}" is in tag names`).join(" and ") : 
-      "";
-
-    const script = AppleScriptSanitizer.buildScript(`
-      tell application "Things3"
-        set searchResults to {}
-        set allTodos to to dos whose name contains "{{query}}"${statusFilter ? ` and ${statusFilter}` : ''}
-        
-        repeat with aTodo in allTodos
-          ${tagFilter ? `
-          set hasAllTags to true
-          ${tags.map(tag => `
-          if "${tag}" is not in tag names of aTodo then set hasAllTags to false`).join('')}
-          
-          if hasAllTags then` : ''}
-            set end of searchResults to ("todo" & tab & (id of aTodo) & tab & (name of aTodo) & tab & (notes of aTodo) & tab & (status of aTodo as string))
-          ${tagFilter ? 'end if' : ''}
-        end repeat
-        
-        return my listToString(searchResults)
-      end tell
-      
-      on listToString(lst)
-        set AppleScript's text item delimiters to "\\n"
-        set theString to lst as string
-        set AppleScript's text item delimiters to ""
-        return theString
-      end listToString
-    `, { query: validatedQuery });
-    
-    const result = await this.executeAppleScript(script);
-    const searchResults = result.split('\n').filter(line => line.trim() !== '').map(line => {
-      const parts = line.split('\t');
-      return {
-        type: parts[0] || 'todo',
-        id: parts[1] || '',
-        name: parts[2] || '',
-        notes: parts[3] || '',
-        status: parts[4] || ''
-      };
-    });
+    const searchResults = await this.executeThingsJXA(
+      JXATemplates.searchAdvanced,
+      {
+        query: validatedQuery,
+        tags: tags,
+        completed: completed,
+        canceled: canceled,
+        trashed: trashed
+      },
+      "Advanced search"
+    );
     
     ThingsLogger.info("Advanced search completed successfully", { 
       query: validatedQuery, 
@@ -383,7 +380,7 @@ export class ToolHandlers {
       filters: { tags, completed, canceled, trashed }
     });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       query: validatedQuery,
       filters: { tags, completed, canceled, trashed },
@@ -397,14 +394,15 @@ export class ToolHandlers {
     
     ThingsLogger.info("Getting recent items", { days });
 
-    // This is a simplified implementation - would need AppleScript to filter by modification date
-    const script = AppleScriptTemplates.getItemsByStatus("todos", "open", "all");
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseTodos(result);
+    const todos = await this.executeThingsJXA(
+      JXATemplates.getRecent,
+      { days: days },
+      "Get recent"
+    );
     
     ThingsLogger.info("Retrieved recent items successfully", { count: todos.length });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       days: days,
       count: todos.length,
@@ -421,26 +419,38 @@ export class ToolHandlers {
     
     ThingsLogger.info("Updating to-do", { id: scriptParams.id });
 
-    const scriptTemplate = AppleScriptTemplates.updateTodo(scriptParams);
-    const result = await this.executeThingsScript(scriptTemplate, scriptParams, "Update todo");
-    
-    if (result.trim() === "not_found") {
+    try {
+      const result = await this.executeThingsJXA(
+        JXATemplates.updateTodo,
+        {
+          id: scriptParams.id,
+          title: scriptParams.title || scriptParams.new_name,
+          notes: scriptParams.notes,
+          deadline: scriptParams.due_date,
+          when: scriptParams.activation_date,
+          tags: scriptParams.tags,
+          completed: scriptParams.completed,
+          canceled: scriptParams.canceled
+        },
+        "Update todo"
+      );
+      
+      ThingsLogger.logAssignmentWarnings(scriptParams, "updated");
+      ThingsLogger.info("To-do updated successfully", { id: scriptParams.id });
+      
+      return ResponseFormatter.createSuccessResponse({
+        success: true,
+        message: `Updated to-do: ${scriptParams.id}`,
+      });
+    } catch (error) {
       ThingsLogger.warn("Todo not found for update", { id: scriptParams.id });
       
-      return DataParser.createSuccessResponse({
+      return ResponseFormatter.createSuccessResponse({
         success: false,
         message: `To-do not found: ${scriptParams.id}`,
         error: "TODO_NOT_FOUND"
       });
     }
-    
-    ThingsLogger.logAssignmentWarnings(scriptParams, "updated");
-    ThingsLogger.info("To-do updated successfully", { id: scriptParams.id });
-    
-    return DataParser.createSuccessResponse({
-      success: true,
-      message: `Updated to-do: ${scriptParams.id}`,
-    });
   }
 
   async updateProject(args) {
@@ -452,27 +462,38 @@ export class ToolHandlers {
     
     ThingsLogger.info("Updating project", { id: scriptParams.id });
 
-    const scriptTemplate = AppleScriptTemplates.updateProject(scriptParams);
-    
-    const result = await this.executeThingsScript(scriptTemplate, scriptParams, "Update project");
-    
-    if (result.trim() === "not_found") {
+    try {
+      const result = await this.executeThingsJXA(
+        JXATemplates.updateProject,
+        {
+          id: scriptParams.id,
+          title: scriptParams.title,
+          notes: scriptParams.notes,
+          deadline: scriptParams.due_date,
+          when: scriptParams.activation_date,
+          tags: scriptParams.tags,
+          completed: scriptParams.completed,
+          canceled: scriptParams.canceled
+        },
+        "Update project"
+      );
+      
+      ThingsLogger.logAssignmentWarnings(scriptParams, "updated");
+      ThingsLogger.info("Project updated successfully", { id: scriptParams.id });
+      
+      return ResponseFormatter.createSuccessResponse({
+        success: true,
+        message: `Updated project: ${scriptParams.id}`,
+      });
+    } catch (error) {
       ThingsLogger.warn("Project not found for update", { id: scriptParams.id });
       
-      return DataParser.createSuccessResponse({
+      return ResponseFormatter.createSuccessResponse({
         success: false,
         message: `Project not found: ${scriptParams.id}`,
         error: "PROJECT_NOT_FOUND"
       });
     }
-    
-    ThingsLogger.logAssignmentWarnings(scriptParams, "updated");
-    ThingsLogger.info("Project updated successfully", { id: scriptParams.id });
-    
-    return DataParser.createSuccessResponse({
-      success: true,
-      message: `Updated project: ${scriptParams.id}`,
-    });
   }
 
   async showItem(args) {
@@ -480,36 +501,29 @@ export class ToolHandlers {
     
     ThingsLogger.info("Showing item", { id: itemId });
 
-    const script = AppleScriptSanitizer.buildScript(`
-      tell application "Things3"
-        try
-          set theItem to to do id "{{id}}"
-          return "Found: " & name of theItem
-        on error
-          return "not_found"
-        end try
-      end tell
-    `, { id: itemId });
-    
-    const result = await this.executeAppleScript(script);
-    
-    if (result.trim() === "not_found") {
+    try {
+      const item = await this.executeThingsJXA(
+        JXATemplates.showItem,
+        { id: itemId },
+        "Show item"
+      );
+      
+      ThingsLogger.info("Item found successfully", { id: itemId, type: item.type });
+      
+      return ResponseFormatter.createSuccessResponse({
+        success: true,
+        id: itemId,
+        item: item,
+      });
+    } catch (error) {
       ThingsLogger.warn("Item not found", { id: itemId });
       
-      return DataParser.createSuccessResponse({
+      return ResponseFormatter.createSuccessResponse({
         success: false,
         message: `Item not found: ${itemId}`,
         error: "ITEM_NOT_FOUND"
       });
     }
-    
-    ThingsLogger.info("Item found successfully", { id: itemId });
-    
-    return DataParser.createSuccessResponse({
-      success: true,
-      id: itemId,
-      details: result,
-    });
   }
 
   async searchItems(args) {
@@ -517,35 +531,18 @@ export class ToolHandlers {
 
     ThingsLogger.info("Searching items", { query: validatedQuery });
 
-    let searchResults = [];
-    
-    // Search todos
-    const todoScript = AppleScriptTemplates.searchTodos(validatedQuery);
-    const script = AppleScriptSanitizer.buildScript(todoScript, { query: validatedQuery });
-    const result = await this.executeAppleScript(script);
-    const todos = DataParser.parseSearchResults(result, 'todo');
-    searchResults.push(...todos);
-    
-    // Search projects
-    const projectScript = AppleScriptTemplates.searchProjects(validatedQuery);
-    const projectScriptBuilt = AppleScriptSanitizer.buildScript(projectScript, { query: validatedQuery });
-    const projectResult = await this.executeAppleScript(projectScriptBuilt);
-    const projects = DataParser.parseSearchResults(projectResult, 'project');
-    searchResults.push(...projects);
-    
-    // Search areas
-    const areaScript = AppleScriptTemplates.searchAreas(validatedQuery);
-    const areaScriptBuilt = AppleScriptSanitizer.buildScript(areaScript, { query: validatedQuery });
-    const areaResult = await this.executeAppleScript(areaScriptBuilt);
-    const areas = DataParser.parseSearchResults(areaResult, 'area');
-    searchResults.push(...areas);
+    const searchResults = await this.executeThingsJXA(
+      JXATemplates.searchItems,
+      { query: validatedQuery },
+      "Search items"
+    );
     
     ThingsLogger.info("Search completed successfully", { 
       query: validatedQuery, 
       count: searchResults.length 
     });
     
-    return DataParser.createSuccessResponse({
+    return ResponseFormatter.createSuccessResponse({
       success: true,
       query: validatedQuery,
       count: searchResults.length,

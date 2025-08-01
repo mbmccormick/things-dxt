@@ -1,6 +1,6 @@
 {
   "name": "things-dxt",
-  "version": "1.2.4",
+  "version": "1.3.0",
   "type": "module",
   "description": "Claude Desktop Extension for Things, the award-winning personal task manager",
   "main": "server/index.js",
@@ -11,10 +11,10 @@
     "test": "node test/run-tests.js",
     "test:validation": "node test/validation.test.js",
     "test:parameter": "node test/parameter-mapping.test.js",
-    "test:data-parser": "node test/data-parser.test.js",
-    "test:applescript": "node test/applescript-schedule.test.js",
+    "test:response-formatter": "node test/response-formatter.test.js",
+    "test:jxa": "node test/area-id-support.test.js && node test/tags-handling.test.js",
     "package": "dxt pack .",
-    "validate": "node -c server/index.js && node -c server/utils.js && node -c server/tool-definitions.js && node -c server/tool-handlers.js && node -c server/server-config.js && node -c server/applescript-templates.js && node -c server/data-parser.js"
+    "validate": "node -c server/index.js && node -c server/utils.js && node -c server/tool-definitions.js && node -c server/tool-handlers.js && node -c server/server-config.js && node -c server/jxa-templates.js && node -c server/response-formatter.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0"

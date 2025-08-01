@@ -214,8 +214,9 @@ things-dxt/
     ├── run-tests.js           # Test runner
     ├── validation.test.js     # Input validation tests
     ├── parameter-mapping.test.js # Parameter mapping tests
-    ├── data-parser.test.js    # Data parsing tests
-    ├── applescript-schedule.test.js # Date scheduling tests
+    ├── response-formatter.test.js # Response formatting tests
+    ├── area-id-support.test.js # Area ID parameter tests
+    ├── project-todos.test.js  # Project creation with todos tests
     └── tags-handling.test.js  # Tag handling tests
 ```
 
