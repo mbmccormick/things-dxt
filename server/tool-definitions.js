@@ -106,7 +106,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         include_items: {
           type: "boolean",
-          description: "Whether to include items in each area",
+          description: "Whether to include item details in each area",
           default: false,
         },
       },
@@ -124,7 +124,7 @@ export const TOOL_DEFINITIONS = [
         },
         include_items: {
           type: "boolean",
-          description: "Whether to include items",
+          description: "Whether to include item details",
           default: true,
         },
       },
@@ -138,7 +138,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         include_items: {
           type: "boolean",
-          description: "Whether to include items in each project",
+          description: "Whether to include item details in each project",
           default: false,
         },
       },
@@ -261,7 +261,7 @@ export const TOOL_DEFINITIONS = [
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Tags to filter by",
+          description: "Optional array of tag names to filter by",
         },
         completed: {
           type: "boolean",
@@ -305,7 +305,7 @@ export const TOOL_DEFINITIONS = [
         },
         title: {
           type: "string",
-          description: "Optional new title for the to-do",
+          description: "Optional new title for the to-do item",
         },
         notes: {
           type: "string",
@@ -322,7 +322,7 @@ export const TOOL_DEFINITIONS = [
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Optional array of tag names to set",
+          description: "Optional array of tag names",
         },
         checklist_items: {
           type: "array",
@@ -353,7 +353,7 @@ export const TOOL_DEFINITIONS = [
         },
         title: {
           type: "string",
-          description: "Optional new title for the project",
+          description: "Optional new name for the project",
         },
         notes: {
           type: "string",
@@ -370,7 +370,7 @@ export const TOOL_DEFINITIONS = [
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Optional array of tag names to set",
+          description: "Optional array of tag names",
         },
         completed: {
           type: "boolean",
