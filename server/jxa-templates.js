@@ -19,55 +19,99 @@ export class JXATemplates {
    * @private
    */
   static COMMON_MAPPINGS = `
-    // Common todo mapping function
+    // Safe date extraction utility
+    function safeDate(obj, methodName) {
+      try {
+        const method = obj[methodName];
+        if (method) {
+          const date = method();
+          return date ? date.toISOString() : null;
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
+    }
+    
+    // Safe date scheduling utility
+    function scheduleItem(item, dateString) {
+      if (dateString) {
+        try {
+          const scheduleDate = new Date(dateString);
+          things.schedule(item, {for: scheduleDate});
+        } catch (e) {
+          // If scheduling fails, fall back to direct assignment
+          try {
+            item.activationDate = new Date(dateString);
+          } catch (e2) {
+            // Ignore if both methods fail
+          }
+        }
+      }
+    }
+    
+    // Safe list access utility
+    function safeGetList(listId) {
+      try {
+        return things.lists.byId(listId).toDos();
+      } catch (e) {
+        return [];
+      }
+    }
+    
+    // Common todo mapping function with safe date handling
     function mapTodo(todo, includeProject = true, includeArea = true) {
       const mapped = {
         id: todo.id(),
         name: todo.name(),
         notes: todo.notes ? todo.notes() : '',
         status: todo.status(),
-        dueDate: todo.dueDate ? todo.dueDate().toISOString() : null,
-        when: todo.activationDate ? todo.activationDate().toISOString() : null,
+        dueDate: safeDate(todo, 'dueDate'),
+        when: safeDate(todo, 'activationDate'),
         tags: todo.tagNames ? todo.tagNames() : [],
-        creationDate: todo.creationDate ? todo.creationDate().toISOString() : null,
-        modificationDate: todo.modificationDate ? todo.modificationDate().toISOString() : null,
-        completionDate: todo.completionDate ? todo.completionDate().toISOString() : null
+        creationDate: safeDate(todo, 'creationDate'),
+        modificationDate: safeDate(todo, 'modificationDate'),
+        completionDate: safeDate(todo, 'completionDate')
       };
       
-      if (includeProject && todo.project()) {
+      if (includeProject && todo.project && todo.project()) {
         mapped.project = {
           id: todo.project().id(),
           name: todo.project().name()
         };
+      } else {
+        mapped.project = null;
       }
       
-      if (includeArea && todo.area()) {
+      if (includeArea && todo.area && todo.area()) {
         mapped.area = {
           id: todo.area().id(),
           name: todo.area().name()
         };
+      } else {
+        mapped.area = null;
       }
       
       return mapped;
     }
     
-    // Common project mapping function
+    // Common project mapping function with safe date handling
     function mapProject(project) {
       return {
         id: project.id(),
         name: project.name(),
         notes: project.notes ? project.notes() : '',
         status: project.status(),
-        deadline: project.dueDate ? project.dueDate().toISOString() : null,
-        due_date: project.activationDate ? project.activationDate().toISOString() : null,
-        area: project.area() ? {
+        deadline: safeDate(project, 'dueDate'),
+        due_date: safeDate(project, 'activationDate'),
+        area: project.area && project.area() ? {
           id: project.area().id(),
           name: project.area().name()
         } : null,
         tags: project.tagNames ? project.tagNames() : [],
-        creationDate: project.creationDate ? project.creationDate().toISOString() : null,
-        modificationDate: project.modificationDate ? project.modificationDate().toISOString() : null,
-        completionDate: project.completionDate ? project.completionDate().toISOString() : null
+        creationDate: safeDate(project, 'creationDate'),
+        modificationDate: safeDate(project, 'modificationDate'),
+        completionDate: safeDate(project, 'completionDate')
       };
     }
     
@@ -153,22 +197,45 @@ function run(argv) {
    */
   static getAreas(includeItems = false) {
     return this.wrapScript(`
-    const areas = things.areas();
+    let areas;
+    try {
+      areas = things.areas();
+    } catch (e) {
+      return JSON.stringify({
+        success: false,
+        error: {
+          type: 'AccessError',
+          message: 'Unable to access areas',
+          code: -1
+        }
+      });
+    }
     
     const areaData = areas.map(area => {
-      const data = {
-        id: area.id(),
-        name: area.name(),
-        tags: area.tagNames ? area.tagNames() : []
-      };
-      
-      if (${includeItems}) {
-        data.projects = area.projects().length;
-        data.todos = area.toDos().length;
+      try {
+        const data = {
+          id: area.id(),
+          name: area.name(),
+          tags: area.tagNames ? area.tagNames() : []
+        };
+        
+        if (${includeItems}) {
+          try {
+            data.projects = area.projects().length;
+            data.todos = area.toDos().length;
+          } catch (e) {
+            // If counting fails, set to 0
+            data.projects = 0;
+            data.todos = 0;
+          }
+        }
+        
+        return data;
+      } catch (e) {
+        // Skip malformed areas
+        return null;
       }
-      
-      return data;
-    });
+    }).filter(area => area !== null);
     
     return JSON.stringify({
       success: true,
@@ -181,9 +248,7 @@ function run(argv) {
    */
   static getInbox() {
     return this.wrapScript(`
-    const inbox = things.lists.byId('TMInboxListSource');
-    const todos = inbox.toDos();
-    
+    const todos = safeGetList('TMInboxListSource');
     const todoData = todos.map(todo => mapTodo(todo, false, false));
     
     return JSON.stringify({
@@ -197,9 +262,7 @@ function run(argv) {
    */
   static getToday() {
     return this.wrapScript(`
-    const today = things.lists.byId('TMTodayListSource');
-    const todos = today.toDos();
-    
+    const todos = safeGetList('TMTodayListSource');
     const todoData = todos.map(todo => mapTodo(todo, true, true));
     
     return JSON.stringify({
@@ -213,28 +276,8 @@ function run(argv) {
    */
   static getUpcoming() {
     return this.wrapScript(`
-    const upcoming = things.lists.byId('TMUpcomingListSource');
-    const todos = upcoming.toDos();
-    
-    const todoData = todos.map(todo => ({
-      id: todo.id(),
-      name: todo.name(),
-      notes: todo.notes ? todo.notes() : '',
-      status: todo.status(),
-      dueDate: todo.dueDate ? todo.dueDate().toISOString() : null,
-      when: todo.activationDate ? todo.activationDate().toISOString() : null,
-      project: todo.project() ? {
-        id: todo.project().id(),
-        name: todo.project().name()
-      } : null,
-      area: todo.area() ? {
-        id: todo.area().id(),
-        name: todo.area().name()
-      } : null,
-      tags: todo.tagNames ? todo.tagNames() : [],
-      creationDate: todo.creationDate ? todo.creationDate().toISOString() : null,
-      modificationDate: todo.modificationDate ? todo.modificationDate().toISOString() : null
-    }));
+    const todos = safeGetList('TMUpcomingListSource');
+    const todoData = todos.map(todo => mapTodo(todo, true, true));
     
     return JSON.stringify({
       success: true,
@@ -247,28 +290,8 @@ function run(argv) {
    */
   static getAnytime() {
     return this.wrapScript(`
-    const anytime = things.lists.byId('TMAnytimeListSource');
-    const todos = anytime.toDos();
-    
-    const todoData = todos.map(todo => ({
-      id: todo.id(),
-      name: todo.name(),
-      notes: todo.notes ? todo.notes() : '',
-      status: todo.status(),
-      dueDate: todo.dueDate ? todo.dueDate().toISOString() : null,
-      when: todo.activationDate ? todo.activationDate().toISOString() : null,
-      project: todo.project() ? {
-        id: todo.project().id(),
-        name: todo.project().name()
-      } : null,
-      area: todo.area() ? {
-        id: todo.area().id(),
-        name: todo.area().name()
-      } : null,
-      tags: todo.tagNames ? todo.tagNames() : [],
-      creationDate: todo.creationDate ? todo.creationDate().toISOString() : null,
-      modificationDate: todo.modificationDate ? todo.modificationDate().toISOString() : null
-    }));
+    const todos = safeGetList('TMAnytimeListSource');
+    const todoData = todos.map(todo => mapTodo(todo, true, true));
     
     return JSON.stringify({
       success: true,
@@ -281,28 +304,8 @@ function run(argv) {
    */
   static getSomeday() {
     return this.wrapScript(`
-    const someday = things.lists.byId('TMSomedayListSource');
-    const todos = someday.toDos();
-    
-    const todoData = todos.map(todo => ({
-      id: todo.id(),
-      name: todo.name(),
-      notes: todo.notes ? todo.notes() : '',
-      status: todo.status(),
-      dueDate: todo.dueDate ? todo.dueDate().toISOString() : null,
-      when: todo.activationDate ? todo.activationDate().toISOString() : null,
-      project: todo.project() ? {
-        id: todo.project().id(),
-        name: todo.project().name()
-      } : null,
-      area: todo.area() ? {
-        id: todo.area().id(),
-        name: todo.area().name()
-      } : null,
-      tags: todo.tagNames ? todo.tagNames() : [],
-      creationDate: todo.creationDate ? todo.creationDate().toISOString() : null,
-      modificationDate: todo.modificationDate ? todo.modificationDate().toISOString() : null
-    }));
+    const todos = safeGetList('TMSomedayListSource');
+    const todoData = todos.map(todo => mapTodo(todo, true, true));
     
     return JSON.stringify({
       success: true,
@@ -318,21 +321,7 @@ function run(argv) {
     const projects = things.projects().filter(p => p.status() === 'open');
     
     const projectData = projects.map(project => {
-      const data = {
-        id: project.id(),
-        name: project.name(),
-        notes: project.notes ? project.notes() : '',
-        status: project.status(),
-        dueDate: project.dueDate ? project.dueDate().toISOString() : null,
-        when: project.activationDate ? project.activationDate().toISOString() : null,
-        area: project.area() ? {
-          id: project.area().id(),
-          name: project.area().name()
-        } : null,
-        tags: project.tagNames ? project.tagNames() : [],
-        creationDate: project.creationDate ? project.creationDate().toISOString() : null,
-        modificationDate: project.modificationDate ? project.modificationDate().toISOString() : null
-      };
+      const data = mapProject(project);
       
       if (${includeItems}) {
         data.todos = project.toDos().length;
@@ -361,23 +350,7 @@ function run(argv) {
       return name.includes(searchQuery) || notes.includes(searchQuery);
     });
     
-    const todoData = matchingTodos.map(todo => ({
-      id: todo.id(),
-      name: todo.name(),
-      notes: todo.notes ? todo.notes() : '',
-      status: todo.status(),
-      dueDate: todo.dueDate ? todo.dueDate().toISOString() : null,
-      when: todo.activationDate ? todo.activationDate().toISOString() : null,
-      project: todo.project() ? {
-        id: todo.project().id(),
-        name: todo.project().name()
-      } : null,
-      area: todo.area() ? {
-        id: todo.area().id(),
-        name: todo.area().name()
-      } : null,
-      tags: todo.tagNames ? todo.tagNames() : []
-    }));
+    const todoData = matchingTodos.map(todo => mapTodo(todo, true, true));
     
     return JSON.stringify({
       success: true,
@@ -405,16 +378,24 @@ function run(argv) {
     
     // Set dates if provided
     if (params.deadline) {
-      todo.dueDate = new Date(params.deadline);
+      try {
+        todo.dueDate = new Date(params.deadline);
+      } catch (e) {
+        // Ignore invalid deadline dates
+      }
     }
     
-    if (params.when) {
-      todo.activationDate = new Date(params.when);
-    }
+    scheduleItem(todo, params.when);
     
     // Set tags if provided
     if (params.tags && params.tags.length > 0) {
-      todo.tagNames = params.tags;
+      try {
+        // JXA may require string conversion for tag assignment
+        const tagString = params.tags.join(',');
+        todo.tagNames = tagString;
+      } catch (e) {
+        // If tag assignment fails, ignore and continue
+      }
     }
     
     // Move to project or area if specified
@@ -490,16 +471,24 @@ function run(argv) {
     
     // Set dates if provided
     if (params.deadline) {
-      project.dueDate = new Date(params.deadline);
+      try {
+        project.dueDate = new Date(params.deadline);
+      } catch (e) {
+        // Ignore invalid deadline dates
+      }
     }
     
-    if (params.when) {
-      project.activationDate = new Date(params.when);
-    }
+    scheduleItem(project, params.when);
     
     // Set tags if provided
     if (params.tags && params.tags.length > 0) {
-      project.tagNames = params.tags;
+      try {
+        // JXA may require string conversion for tag assignment
+        const tagString = params.tags.join(',');
+        project.tagNames = tagString;
+      } catch (e) {
+        // If tag assignment fails, ignore and continue
+      }
     }
     
     // Move to area if specified
@@ -572,11 +561,30 @@ function run(argv) {
     }
     
     if (params.when !== undefined) {
-      todo.activationDate = params.when ? new Date(params.when) : null;
+      if (params.when) {
+        scheduleItem(todo, params.when);
+      } else {
+        // Remove scheduling by setting to null
+        try {
+          todo.activationDate = null;
+        } catch (e) {
+          // Ignore if setting to null fails
+        }
+      }
     }
     
     if (params.tags !== undefined) {
-      todo.tagNames = params.tags;
+      try {
+        if (params.tags && params.tags.length > 0) {
+          const tagString = params.tags.join(',');
+          todo.tagNames = tagString;
+        } else {
+          // Remove all tags
+          todo.tagNames = '';
+        }
+      } catch (e) {
+        // If tag assignment fails, ignore
+      }
     }
     
     if (params.completed !== undefined) {
@@ -631,11 +639,30 @@ function run(argv) {
     }
     
     if (params.when !== undefined) {
-      project.activationDate = params.when ? new Date(params.when) : null;
+      if (params.when) {
+        scheduleItem(project, params.when);
+      } else {
+        // Remove scheduling by setting to null
+        try {
+          project.activationDate = null;
+        } catch (e) {
+          // Ignore if setting to null fails
+        }
+      }
     }
     
     if (params.tags !== undefined) {
-      project.tagNames = params.tags;
+      try {
+        if (params.tags && params.tags.length > 0) {
+          const tagString = params.tags.join(',');
+          project.tagNames = tagString;
+        } else {
+          // Remove all tags
+          project.tagNames = '';
+        }
+      } catch (e) {
+        // If tag assignment fails, ignore
+      }
     }
     
     if (params.completed !== undefined) {
@@ -681,7 +708,7 @@ function run(argv) {
       name: todo.name(),
       notes: todo.notes ? todo.notes() : '',
       status: todo.status(),
-      completionDate: todo.completionDate ? todo.completionDate().toISOString() : null,
+      completionDate: safeDate(todo, 'completionDate'),
       project: todo.project() ? {
         id: todo.project().id(),
         name: todo.project().name()
@@ -745,26 +772,7 @@ function run(argv) {
       });
     }
     
-    const todoData = filteredTodos.map(todo => ({
-      id: todo.id(),
-      name: todo.name(),
-      notes: todo.notes ? todo.notes() : '',
-      status: todo.status(),
-      dueDate: todo.dueDate ? todo.dueDate().toISOString() : null,
-      when: todo.activationDate ? todo.activationDate().toISOString() : null,
-      project: todo.project() ? {
-        id: todo.project().id(),
-        name: todo.project().name()
-      } : null,
-      area: todo.area() ? {
-        id: todo.area().id(),
-        name: todo.area().name()
-      } : null,
-      tags: todo.tagNames ? todo.tagNames() : [],
-      creationDate: todo.creationDate ? todo.creationDate().toISOString() : null,
-      modificationDate: todo.modificationDate ? todo.modificationDate().toISOString() : null,
-      completionDate: todo.completionDate ? todo.completionDate().toISOString() : null
-    }));
+    const todoData = filteredTodos.map(todo => mapTodo(todo, true, true));
     
     return JSON.stringify({
       success: true,
@@ -819,8 +827,8 @@ function run(argv) {
       name: todo.name(),
       notes: todo.notes ? todo.notes() : '',
       status: todo.status(),
-      dueDate: todo.dueDate ? todo.dueDate().toISOString() : null,
-      when: todo.activationDate ? todo.activationDate().toISOString() : null,
+      dueDate: safeDate(todo, 'dueDate'),
+      when: safeDate(todo, 'activationDate'),
       project: todo.project() ? {
         id: todo.project().id(),
         name: todo.project().name()
@@ -830,9 +838,9 @@ function run(argv) {
         name: todo.area().name()
       } : null,
       tags: todo.tagNames ? todo.tagNames() : [],
-      creationDate: todo.creationDate ? todo.creationDate().toISOString() : null,
-      modificationDate: todo.modificationDate ? todo.modificationDate().toISOString() : null,
-      completionDate: todo.completionDate ? todo.completionDate().toISOString() : null
+      creationDate: safeDate(todo, 'creationDate'),
+      modificationDate: safeDate(todo, 'modificationDate'),
+      completionDate: safeDate(todo, 'completionDate')
     }));
     
     return JSON.stringify({
@@ -869,8 +877,8 @@ function run(argv) {
       name: todo.name(),
       notes: todo.notes ? todo.notes() : '',
       status: todo.status(),
-      dueDate: todo.dueDate ? todo.dueDate().toISOString() : null,
-      when: todo.activationDate ? todo.activationDate().toISOString() : null,
+      dueDate: safeDate(todo, 'dueDate'),
+      when: safeDate(todo, 'activationDate'),
       project: todo.project() ? {
         id: todo.project().id(),
         name: todo.project().name()
@@ -880,9 +888,9 @@ function run(argv) {
         name: todo.area().name()
       } : null,
       tags: todo.tagNames ? todo.tagNames() : [],
-      creationDate: todo.creationDate ? todo.creationDate().toISOString() : null,
-      modificationDate: todo.modificationDate ? todo.modificationDate().toISOString() : null,
-      completionDate: todo.completionDate ? todo.completionDate().toISOString() : null
+      creationDate: safeDate(todo, 'creationDate'),
+      modificationDate: safeDate(todo, 'modificationDate'),
+      completionDate: safeDate(todo, 'completionDate')
     }));
     
     return JSON.stringify({
@@ -1047,19 +1055,19 @@ function run(argv) {
       data.tags = item.tagNames ? item.tagNames() : [];
       
       if (item.dueDate) {
-        data.dueDate = item.dueDate() ? item.dueDate().toISOString() : null;
+        data.dueDate = safeDate(item, 'dueDate');
       }
       
       if (item.activationDate) {
-        data.when = item.activationDate() ? item.activationDate().toISOString() : null;
+        data.when = safeDate(item, 'activationDate');
       }
       
       if (item.creationDate) {
-        data.creationDate = item.creationDate().toISOString();
+        data.creationDate = safeDate(item, 'creationDate');
       }
       
       if (item.modificationDate) {
-        data.modificationDate = item.modificationDate().toISOString();
+        data.modificationDate = safeDate(item, 'modificationDate');
       }
     }
     
@@ -1075,7 +1083,7 @@ function run(argv) {
       } : null;
       
       if (item.completionDate) {
-        data.completionDate = item.completionDate() ? item.completionDate().toISOString() : null;
+        data.completionDate = safeDate(item, 'completionDate');
       }
     }
     

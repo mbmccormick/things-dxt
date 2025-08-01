@@ -23,7 +23,7 @@ export class ToolHandlers {
     ThingsLogger.info("Creating to-do", { name: scriptParams.name || scriptParams.title });
 
     const result = await this.executeThingsJXA(
-      JXATemplates.createTodo,
+      () => JXATemplates.createTodo(),
       {
         title: scriptParams.name || scriptParams.title,
         notes: scriptParams.notes,
@@ -55,7 +55,7 @@ export class ToolHandlers {
     ThingsLogger.info("Creating project", { name: scriptParams.name || scriptParams.title });
 
     const result = await this.executeThingsJXA(
-      JXATemplates.createProject,
+      () => JXATemplates.createProject(),
       {
         title: scriptParams.name || scriptParams.title,
         notes: scriptParams.notes,
@@ -112,7 +112,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting todos", { projectUuid, includeItems });
 
     const todos = await this.executeThingsJXA(
-      JXATemplates.getTodos,
+      () => JXATemplates.getTodos(),
       { project_uuid: projectUuid },
       "Get todos"
     );
@@ -150,7 +150,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting inbox todos");
 
     const todos = await this.executeThingsJXA(
-      JXATemplates.getInbox,
+      () => JXATemplates.getInbox(),
       {},
       "Get inbox"
     );
@@ -168,7 +168,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting today todos");
 
     const todos = await this.executeThingsJXA(
-      JXATemplates.getToday,
+      () => JXATemplates.getToday(),
       {},
       "Get today"
     );
@@ -186,7 +186,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting upcoming todos");
 
     const todos = await this.executeThingsJXA(
-      JXATemplates.getUpcoming,
+      () => JXATemplates.getUpcoming(),
       {},
       "Get upcoming"
     );
@@ -204,7 +204,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting anytime todos");
 
     const todos = await this.executeThingsJXA(
-      JXATemplates.getAnytime,
+      () => JXATemplates.getAnytime(),
       {},
       "Get anytime"
     );
@@ -222,7 +222,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting someday todos");
 
     const todos = await this.executeThingsJXA(
-      JXATemplates.getSomeday,
+      () => JXATemplates.getSomeday(),
       {},
       "Get someday"
     );
@@ -276,7 +276,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting trashed todos");
 
     const todos = await this.executeThingsJXA(
-      JXATemplates.getTrash,
+      () => JXATemplates.getTrash(),
       {},
       "Get trash"
     );
@@ -294,7 +294,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting tags");
 
     const tags = await this.executeThingsJXA(
-      JXATemplates.getTags,
+      () => JXATemplates.getTags(),
       {},
       "Get tags"
     );
@@ -314,7 +314,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting tagged items", { tagTitle });
 
     const items = await this.executeThingsJXA(
-      JXATemplates.getTaggedItems,
+      () => JXATemplates.getTaggedItems(),
       { tag_title: tagTitle },
       "Get tagged items"
     );
@@ -335,7 +335,7 @@ export class ToolHandlers {
     ThingsLogger.info("Searching todos", { query: validatedQuery });
 
     const todos = await this.executeThingsJXA(
-      JXATemplates.searchTodos,
+      () => JXATemplates.searchTodos(),
       { query: validatedQuery },
       "Search todos"
     );
@@ -363,7 +363,7 @@ export class ToolHandlers {
     ThingsLogger.info("Advanced search", { query: validatedQuery, tags, completed, canceled, trashed });
 
     const searchResults = await this.executeThingsJXA(
-      JXATemplates.searchAdvanced,
+      () => JXATemplates.searchAdvanced(),
       {
         query: validatedQuery,
         tags: tags,
@@ -395,7 +395,7 @@ export class ToolHandlers {
     ThingsLogger.info("Getting recent items", { days });
 
     const todos = await this.executeThingsJXA(
-      JXATemplates.getRecent,
+      () => JXATemplates.getRecent(),
       { days: days },
       "Get recent"
     );
@@ -421,7 +421,7 @@ export class ToolHandlers {
 
     try {
       const result = await this.executeThingsJXA(
-        JXATemplates.updateTodo,
+        () => JXATemplates.updateTodo(),
         {
           id: scriptParams.id,
           title: scriptParams.title || scriptParams.new_name,
@@ -464,7 +464,7 @@ export class ToolHandlers {
 
     try {
       const result = await this.executeThingsJXA(
-        JXATemplates.updateProject,
+        () => JXATemplates.updateProject(),
         {
           id: scriptParams.id,
           title: scriptParams.title,
@@ -503,7 +503,7 @@ export class ToolHandlers {
 
     try {
       const item = await this.executeThingsJXA(
-        JXATemplates.showItem,
+        () => JXATemplates.showItem(),
         { id: itemId },
         "Show item"
       );
@@ -532,7 +532,7 @@ export class ToolHandlers {
     ThingsLogger.info("Searching items", { query: validatedQuery });
 
     const searchResults = await this.executeThingsJXA(
-      JXATemplates.searchItems,
+      () => JXATemplates.searchItems(),
       { query: validatedQuery },
       "Search items"
     );

@@ -146,6 +146,60 @@ function run(argv) {
 - Better error handling with structured responses
 - Direct object manipulation without string templates
 
+### Refactored Utilities (v1.3.0+)
+
+**Safe Date Handling**: Prevents null reference errors that caused multiple bugs
+```javascript
+// Safe date extraction utility
+function safeDate(dateMethod) {
+  try {
+    const date = dateMethod();
+    return date ? date.toISOString() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Usage: safeDate(() => todo.dueDate) instead of todo.dueDate().toISOString()
+```
+
+**Safe Date Scheduling**: Handles Things 3 scheduling with fallback
+```javascript
+// Safe date scheduling utility
+function scheduleItem(item, dateString) {
+  if (dateString) {
+    try {
+      const scheduleDate = new Date(dateString);
+      things.schedule(item, {for: scheduleDate});
+    } catch (e) {
+      // If scheduling fails, fall back to direct assignment
+      try {
+        item.activationDate = new Date(dateString);
+      } catch (e2) {
+        // Ignore if both methods fail
+      }
+    }
+  }
+}
+```
+
+**Safe List Access**: Prevents "Can't get object" errors
+```javascript
+// Safe list access utility
+function safeGetList(listId) {
+  try {
+    return things.lists.byId(listId).toDos();
+  } catch (e) {
+    return [];
+  }
+}
+```
+
+**Common Mapping Functions**: Centralized object mapping with safe date handling
+- `mapTodo(todo, includeProject, includeArea)` - Maps todo objects safely
+- `mapProject(project)` - Maps project objects safely
+- All mapping functions use `safeDate()` internally
+
 ### Security Considerations
 - All user input goes through `ThingsValidator` to prevent injection
 - Dangerous patterns are detected for both JXA and AppleScript constructs
