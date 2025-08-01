@@ -327,7 +327,7 @@ export const TOOL_DEFINITIONS = [
         checklist_items: {
           type: "array",
           items: { type: "string" },
-          description: "Optional array of checklist items to set",
+          description: "Optional array of checklist items",
         },
         completed: {
           type: "boolean",
