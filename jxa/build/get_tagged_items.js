@@ -81,17 +81,6 @@ var JXAScript = (() => {
     } catch (e) {
       result.area = null;
     }
-    try {
-      const checklistItems = todo.checklistItems();
-      if (checklistItems && checklistItems.length > 0) {
-        result.checklistItems = checklistItems.map((item) => ({
-          name: item.name(),
-          completed: item.completed()
-        }));
-      }
-    } catch (e) {
-      result.checklistItems = [];
-    }
     return result;
   }
   function mapProject(project) {
@@ -123,6 +112,21 @@ var JXAScript = (() => {
       }
     } catch (e) {
       result.area = null;
+    }
+    try {
+      const childTasks = project.toDos();
+      if (childTasks && childTasks.length > 0) {
+        result.childTasks = childTasks.map((child) => ({
+          id: child.id(),
+          name: child.name(),
+          status: child.status(),
+          completed: child.status() === "completed"
+        }));
+      } else {
+        result.childTasks = [];
+      }
+    } catch (e) {
+      result.childTasks = [];
     }
     return result;
   }
@@ -170,12 +174,6 @@ var JXAScript = (() => {
       things.toDos.push(todo);
       if (params.tags && params.tags.length > 0) {
         todo.tagNames = formatTags(params.tags);
-      }
-      if (params.checklist_items && params.checklist_items.length > 0) {
-        params.checklist_items.forEach((itemName) => {
-          const checklistItem = things.ChecklistItem({ name: itemName });
-          todo.checklistItems.push(checklistItem);
-        });
       }
       if (params.activation_date) {
         scheduleItem(things, todo, params.activation_date);
@@ -236,7 +234,18 @@ var JXAScript = (() => {
      * Update an existing todo
      */
     static update(things, params) {
-      const todo = things.toDos.byId(params.id);
+      let todo = null;
+      let isProject = false;
+      try {
+        todo = things.toDos.byId(params.id);
+      } catch (e) {
+        try {
+          todo = things.projects.byId(params.id);
+          isProject = true;
+        } catch (e2) {
+          throw new Error(`Todo/Project with id ${params.id} not found`);
+        }
+      }
       if (params.name !== void 0) {
         todo.name = params.name;
       }
@@ -264,21 +273,6 @@ var JXAScript = (() => {
       }
       if (params.due_date !== void 0) {
         todo.dueDate = params.due_date ? parseLocalDate(params.due_date) : null;
-      }
-      if (params.checklist_items !== void 0) {
-        try {
-          const existingItems = todo.checklistItems();
-          existingItems.forEach((item) => {
-            things.delete(item);
-          });
-        } catch (e) {
-        }
-        if (params.checklist_items.length > 0) {
-          params.checklist_items.forEach((itemName) => {
-            const checklistItem = things.ChecklistItem({ name: itemName });
-            todo.checklistItems.push(checklistItem);
-          });
-        }
       }
       return mapTodo(todo);
     }

@@ -70,6 +70,7 @@ export function parseTags(tagString) {
   return tagString.split(',').map(t => t.trim()).filter(t => t);
 }
 
+
 /**
  * Map todo object to response format
  */
@@ -115,18 +116,6 @@ export function mapTodo(todo) {
     result.area = null;
   }
   
-  // Add checklist items if they exist
-  try {
-    const checklistItems = todo.checklistItems();
-    if (checklistItems && checklistItems.length > 0) {
-      result.checklistItems = checklistItems.map(item => ({
-        name: item.name(),
-        completed: item.completed()
-      }));
-    }
-  } catch (e) {
-    result.checklistItems = [];
-  }
   
   return result;
 }
@@ -161,6 +150,23 @@ export function mapProject(project) {
     }
   } catch (e) {
     result.area = null;
+  }
+  
+  // Add child tasks (projects can have child todos)
+  try {
+    const childTasks = project.toDos();
+    if (childTasks && childTasks.length > 0) {
+      result.childTasks = childTasks.map(child => ({
+        id: child.id(),
+        name: child.name(),
+        status: child.status(),
+        completed: child.status() === 'completed'
+      }));
+    } else {
+      result.childTasks = [];
+    }
+  } catch (e) {
+    result.childTasks = [];
   }
   
   return result;

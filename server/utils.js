@@ -137,6 +137,12 @@ export class ParameterProcessor {
       delete processed.deadline;
     }
     
+    // checklist_items (user-friendly) → child_tasks (internal)
+    if (params.checklist_items !== undefined) {
+      processed.child_tasks = params.checklist_items;
+      delete processed.checklist_items;
+    }
+    
     return processed;
   }
 }

@@ -27,13 +27,6 @@ export class TodoOperations {
       todo.tagNames = formatTags(params.tags);
     }
     
-    // Add checklist items
-    if (params.checklist_items && params.checklist_items.length > 0) {
-      params.checklist_items.forEach(itemName => {
-        const checklistItem = things.ChecklistItem({ name: itemName });
-        todo.checklistItems.push(checklistItem);
-      });
-    }
     
     // Schedule activation date (when to work on)
     if (params.activation_date) {
@@ -108,7 +101,20 @@ export class TodoOperations {
    * Update an existing todo
    */
   static update(things, params) {
-    const todo = things.toDos.byId(params.id);
+    // Try to find the item as either a todo or a project
+    let todo = null;
+    let isProject = false;
+    
+    try {
+      todo = things.toDos.byId(params.id);
+    } catch (e) {
+      try {
+        todo = things.projects.byId(params.id);
+        isProject = true;
+      } catch (e2) {
+        throw new Error(`Todo/Project with id ${params.id} not found`);
+      }
+    }
     
     // Update basic properties
     if (params.name !== undefined) {
@@ -150,24 +156,6 @@ export class TodoOperations {
       todo.dueDate = params.due_date ? parseLocalDate(params.due_date) : null;
     }
     
-    // Update checklist items
-    if (params.checklist_items !== undefined) {
-      // Remove existing checklist items
-      try {
-        const existingItems = todo.checklistItems();
-        existingItems.forEach(item => {
-          things.delete(item);
-        });
-      } catch (e) {}
-      
-      // Add new checklist items
-      if (params.checklist_items.length > 0) {
-        params.checklist_items.forEach(itemName => {
-          const checklistItem = things.ChecklistItem({ name: itemName });
-          todo.checklistItems.push(checklistItem);
-        });
-      }
-    }
     
     return mapTodo(todo);
   }

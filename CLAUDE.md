@@ -152,7 +152,18 @@ function run(argv) {
 **Date Handling**:
 - Use `schedule()` command for activation dates: `things.schedule(item, {for: date})`
 - `activationDate` property is read-only, use schedule command instead
-- Always convert YYYY-MM-DD strings to JavaScript Date objects
+- **Timezone-aware parsing**: Use `parseLocalDate()` utility for YYYY-MM-DD strings
+  ```javascript
+  // ✅ CORRECT: Creates date in local timezone at midnight
+  function parseLocalDate(dateString) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+  
+  // ❌ WRONG: Date string interpreted as UTC, causes timezone shifts
+  new Date(dateString + 'T00:00:00');
+  ```
+- All date inputs are assumed to be in system local timezone
 
 **Tag Format**:
 - Things 3 uses comma-separated strings: `"work, urgent, project"`  
@@ -163,6 +174,24 @@ function run(argv) {
 - Direct access: `things.toDos.byId(id)`, `things.projects.byId(id)`
 - Use safe wrappers for error-prone operations
 - Handle missing objects gracefully
+
+**Built-in List IDs**:
+- Things 3's built-in lists (Inbox, Today, Anytime, etc.) are NOT documented in Things.sdef
+- These IDs must be discovered empirically by querying `things.lists()` collection
+- Current known mappings (discovered through API testing):
+  ```javascript
+  const LIST_IDS = {
+    INBOX: "TMInboxListSource",
+    TODAY: "TMTodayListSource", 
+    UPCOMING: "TMCalendarListSource",    // NOT "TMUpcomingListSource"
+    ANYTIME: "TMNextListSource",         // NOT "TMAnytimeListSource"
+    SOMEDAY: "TMSomedayListSource",
+    LOGBOOK: "TMLogbookListSource",
+    TRASH: "TMTrashListSource"
+  };
+  ```
+- ⚠️ **Critical**: The Anytime and Upcoming list IDs don't match their display names
+- Test new installations by running: `things.lists().map(l => ({id: l.id(), name: l.name()}))`
 
 **Safe Utilities** (in `jxa/src/utils.js`):
 ```javascript
@@ -306,5 +335,10 @@ npm run package
 - **Permissions**: User must grant automation permissions
 - **API limits**: Some operations may have rate limiting
 - **Data consistency**: Always use safe utilities for object access
+- **Built-in List IDs**: Don't assume logical names - always verify empirically
+- **Apostrophes in text**: Properly escape or use JSON parameter passing (handled by current architecture)
+- **Empty results**: Check list IDs first if operations return unexpected empty arrays
+- **Tag removal**: Use empty array `[]` to clear all tags, not null or undefined
+- **Checklist items**: Can be added/modified on existing todos via `update_todo`
 
 The modular architecture provides a secure, maintainable foundation that eliminates the security vulnerabilities of the previous string-based approach while offering modern development practices and comprehensive error handling.
