@@ -147,8 +147,8 @@ var JXAScript = (() => {
   var LIST_IDS = {
     INBOX: "TMInboxListSource",
     TODAY: "TMTodayListSource",
-    UPCOMING: "TMUpcomingListSource",
-    ANYTIME: "TMAnytimeListSource",
+    UPCOMING: "TMCalendarListSource",
+    ANYTIME: "TMNextListSource",
     SOMEDAY: "TMSomedayListSource",
     LOGBOOK: "TMLogbookListSource",
     TRASH: "TMTrashListSource"
