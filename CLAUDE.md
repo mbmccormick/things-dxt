@@ -4,248 +4,307 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-### Testing
+### Building
 ```bash
-# Run comprehensive test suite
-npm test
+# Build JXA scripts from modular sources
+npm run build
 
-# Run individual test suites  
-npm run test:validation      # Input validation tests
-npm run test:parameter      # Parameter mapping tests  
-npm run test:response-formatter  # Response formatting tests
-npm run test:jxa             # JXA-specific tests
+# Build with file watching during development
+npm run build:watch
 
-# Syntax validation
+# Validate all source files compile correctly
 npm run validate
 ```
 
+
 ### Development & Debugging
 ```bash
-# Start server in debug mode
-DEBUG=true npm start
-
-# Package extension for distribution
-dxt pack .
-
-# Run server normally
+# Start server (includes build)
 npm start
+
+# Start server in debug mode with detailed logging
+npm run dev
+
+# Package extension for distribution (includes build)
+npm run package
 ```
 
 ## Architecture Overview
 
-This is a Claude Desktop Extension (DXT) that integrates with Things 3 task manager via JavaScript for Automation (JXA). The architecture follows a modular design with clear separation of concerns:
+This is a Claude Desktop Extension (DXT) that integrates with Things 3 via JavaScript for Automation (JXA). The architecture follows a **modular, security-first design** based on bundled JXA scripts and secure parameter passing.
 
-### Core Components
+### Core Architecture
 
-**`server/index.js`** - Main MCP server entry point
-- Handles MCP protocol communication
-- Manages JXA execution with JSON parameter passing and timeouts
-- Coordinates between tool handlers and JXA templates
+**🔒 Security-First Design**:
+- Uses `child_process.execFile()` instead of `exec()` to eliminate shell injection
+- Parameters passed as JSON via command arguments, never embedded in code
+- Input validation with dangerous pattern detection
+- No string escaping required anywhere in the system
+
+**🏗️ Modular JXA Sources** (`jxa/src/`):
+- Separate ES6 modules for different operation types
+- Bundled with esbuild into executable JXA scripts
+- Modern JavaScript features in source, compatible output for JXA
+
+### Key Components
+
+**`server/index.js`** - Streamlined MCP server
+- Direct JXA execution (no intermediate handlers)
+- Parameter processing and validation
+- Automatic script building on startup
+- Comprehensive error handling and logging
+
+**`server/jxa-executor.js`** - Secure JXA execution engine
+- Loads pre-built bundled scripts for each operation
+- Executes via secure `execFile` with JSON parameters
+- Enhanced error handling for common JXA issues
+- Timeout and buffer protection
 
 **`server/tool-definitions.js`** - MCP tool schema definitions
-- Defines all 21 available tools (add_todo, get_inbox, search_items, etc.)
-- Specifies input parameters and validation schemas
-- Maps user-friendly parameter names to internal representations
+- Defines all 21 available tools with validation schemas
+- User-friendly parameter names and descriptions
 
-**`server/tool-handlers.js`** - Tool implementation logic
-- Contains handler methods for each MCP tool
-- Orchestrates parameter mapping, JXA execution, and response formatting
-- Handles error cases and validation
+**`server/utils.js`** - Consolidated utilities
+- `ThingsLogger`: Centralized logging with debug support
+- `InputValidator`: Security-focused input validation
+- `ParameterProcessor`: API consistency and backward compatibility
 
-**`server/jxa-templates.js`** - JXA (JavaScript for Automation) generation
-- Contains JXA functions for all 21 MCP tools
-- Native JavaScript syntax with JSON input/output
-- Eliminates complex string escaping issues
-- Better error handling with structured responses
-- Uses `schedule` command for setting activation dates correctly
+**`jxa/src/` Modular Sources**:
+- `main.js` - Entry point and operation routing
+- `utils.js` - Shared utilities and object mapping functions
+- `todos.js` - Todo CRUD operations
+- `projects.js` - Project CRUD operations  
+- `lists.js` - Built-in list operations (Inbox, Today, etc.)
+- `search.js` - Search and filtering operations
+- `tags.js` - Tag operations
+- `areas.js` - Area operations
 
-**`server/utils.js`** - Validation and utilities
-- `ThingsValidator`: Input validation with security checks
-- `ParameterMapper`: Maps user parameters to Things 3 internal terminology
-- `DateConverter`: Converts YYYY-MM-DD to JavaScript Date objects
-- `ThingsLogger`: Centralized logging functionality
+**`jxa/build.js`** - Build system
+- Validates source files before building
+- Bundles each operation into a standalone JXA script
+- Generates 21 optimized scripts in `jxa/build/`
 
-**`server/response-formatter.js`** - Response formatting
-- Creates standardized MCP responses from JXA execution results
-- Formats both success and error responses consistently
-- Handles structured JSON output from JXA templates
+### Data Flow
 
-### Key Design Patterns
+```
+MCP Request → Server → ParameterProcessor → JXAExecutor → Bundled Script → Things 3
+           ↑                                     ↓
+      Response ← JSON Response ← Script Execution ← JXA Response
+```
 
-**Parameter Mapping**: User-friendly terms are mapped to Things 3 internal terminology:
-- `when` (user) → `activation_date` (Things 3) = when scheduled to work on
-- `deadline` (user) → `due_date` (Things 3) = when actually due
+1. **Request**: MCP tool request with parameters
+2. **Processing**: Parameter validation and user-friendly mapping  
+3. **Execution**: Load bundled script and execute via secure `execFile`
+4. **Response**: Parse JSON response and return to MCP client
 
-**JXA Execution Flow**:
-1. User parameters → `ParameterMapper.validateAndMapParameters()`
-2. Validated parameters → `JXATemplates.{method}()` → JXA script generation
-3. Script execution → `executeJXA()` with JSON parameters and timeout
-4. JSON response → direct use (no complex parsing needed)
-5. Structured response → `ResponseFormatter.createSuccessResponse()`
+## Implementation Details
 
-**Error Handling**: All errors are wrapped in `McpError` with appropriate error codes. JXA failures are caught and converted to user-friendly messages with proper error types.
+### Secure JXA Execution
 
-**Security**: Input validation prevents script injection attacks through `ThingsValidator` with pattern detection for dangerous JXA/AppleScript constructs.
-
-## Critical Implementation Details
-
-### JXA Date Scheduling
-- Uses JavaScript `Date` objects for proper date handling
-- The `schedule` command is used for setting activation dates: `schedule item for date "..."`
-- For creation: create item first, then schedule if needed
-- For updates: use `schedule` command directly on existing item
-- Dates are converted from YYYY-MM-DD format to JavaScript Date objects
-
-### Object References
-- Use direct object access: `things.toDos.byId("...")`
-- Use `things.projects.byId("...")` for project references
-- Use `things.areas.byId("...")` for area references
-- JXA provides cleaner object access than AppleScript's `whose` syntax
-
-### JXA Parameter Passing
-**CRITICAL**: JXA uses JSON for parameter passing, eliminating string escaping issues.
-
-**Key Principles**:
-- **Parameters**: Pass complex objects as JSON via `argv[0]`
-- **Execution**: Use `osascript -l JavaScript -e 'script' 'params'`
-- **Responses**: Return structured JSON from JXA functions
-- **Error Handling**: Catch exceptions and return structured error objects
-
-**Implementation Details**:
+**Parameter Passing** (eliminates all escaping issues):
 ```javascript
-// ✅ CORRECT: JXA execution (server/index.js)
-async executeJXA(script, params = {}) {
-  const jsonParams = JSON.stringify(params);
-  const escapedParams = jsonParams.replace(/'/g, "'\"'\"'");
-  const command = `osascript -l JavaScript -e '${script}' '${escapedParams}'`;
-  // ... execution logic
-}
+// ✅ SECURE: Parameters passed separately as JSON
+const args = [
+  '-l', 'JavaScript',        // JXA mode
+  '-e', bundledScript,       // Pre-built script
+  JSON.stringify(params)     // Parameters as JSON
+];
 
-// ✅ CORRECT: JXA template structure (server/jxa-templates.js)
-static wrapScript(functionBody) {
-  return `
+await execFile('osascript', args);
+```
+
+**JXA Script Structure**:
+```javascript
+// Generated by esbuild from modular sources
 function run(argv) {
   try {
-    const params = argv[0] ? JSON.parse(argv[0]) : {};
+    const params = JSON.parse(argv[0] || '{}');
     const things = Application('com.culturedcode.ThingsMac');
-    ${functionBody}
+    
+    // Operation-specific logic from bundled modules
+    const result = SomeOperation.execute(things, params);
+    
+    return JSON.stringify({
+      success: true,
+      data: result
+    });
   } catch (error) {
     return JSON.stringify({
       success: false,
-      error: { message: error.message, type: error.name }
+      error: {
+        message: error.message,
+        type: error.name
+      }
     });
   }
-}`;
 }
 ```
 
-**Benefits of JXA**:
-- No complex string escaping required
-- Native JSON input/output 
-- JavaScript syntax is more maintainable
-- Better error handling with structured responses
-- Direct object manipulation without string templates
+### Things 3 API Integration
 
-### Refactored Utilities (v1.3.0+)
+**SDEF Compliance**:
+- All property names match the official Things.sdef specification
+- Use `name` instead of `title` for item names
+- Use `activationDate` for scheduled dates (via schedule command)
+- Use `dueDate` for deadlines
+- Use `tagNames` as comma-separated string per SDEF
 
-**Safe Date Handling**: Prevents null reference errors that caused multiple bugs
+**Date Handling**:
+- Use `schedule()` command for activation dates: `things.schedule(item, {for: date})`
+- `activationDate` property is read-only, use schedule command instead
+- Always convert YYYY-MM-DD strings to JavaScript Date objects
+
+**Tag Format**:
+- Things 3 uses comma-separated strings: `"work, urgent, project"`  
+- API returns both `tagNames` (string) and `tags` (array) for convenience
+- Use `formatTags()` and `parseTags()` utilities
+
+**Object References**:
+- Direct access: `things.toDos.byId(id)`, `things.projects.byId(id)`
+- Use safe wrappers for error-prone operations
+- Handle missing objects gracefully
+
+**Safe Utilities** (in `jxa/src/utils.js`):
 ```javascript
-// Safe date extraction utility
-function safeDate(dateMethod) {
+// Safe date extraction
+function getDate(item, method) {
   try {
-    const date = dateMethod();
+    const date = item[method]();
     return date ? date.toISOString() : null;
   } catch (e) {
     return null;
   }
 }
 
-// Usage: safeDate(() => todo.dueDate) instead of todo.dueDate().toISOString()
-```
-
-**Safe Date Scheduling**: Handles Things 3 scheduling with fallback
-```javascript
-// Safe date scheduling utility
-function scheduleItem(item, dateString) {
-  if (dateString) {
-    try {
-      const scheduleDate = new Date(dateString);
-      things.schedule(item, {for: scheduleDate});
-    } catch (e) {
-      // If scheduling fails, fall back to direct assignment
-      try {
-        item.activationDate = new Date(dateString);
-      } catch (e2) {
-        // Ignore if both methods fail
-      }
-    }
-  }
-}
-```
-
-**Safe List Access**: Prevents "Can't get object" errors
-```javascript
-// Safe list access utility
-function safeGetList(listId) {
+// Safe scheduling with Things 3 command
+function scheduleItem(things, item, dateString) {
+  if (!dateString) return;
   try {
-    return things.lists.byId(listId).toDos();
+    const date = new Date(dateString);
+    things.schedule(item, { for: date });
   } catch (e) {
-    return [];
+    // Scheduling failed - activation date is read-only
   }
 }
 ```
 
-**Common Mapping Functions**: Centralized object mapping with safe date handling
-- `mapTodo(todo, includeProject, includeArea)` - Maps todo objects safely
-- `mapProject(project)` - Maps project objects safely
-- All mapping functions use `safeDate()` internally
+### Build System
 
-### Security Considerations
-- All user input goes through `ThingsValidator` to prevent injection
-- Dangerous patterns are detected for both JXA and AppleScript constructs
-- JXA execution has timeouts and buffer limits
-- JSON parameter passing prevents most injection attacks
+**Development Workflow**:
+1. Edit source files in `jxa/src/`
+2. Run `npm run build` to generate bundled scripts
+3. Scripts auto-build when starting server
 
-### Testing Strategy
-- Unit tests cover validation, parameter mapping, and data parsing
-- JXA template tests verify correct command generation
-- No integration tests with actual Things 3 app (by design)
-- Use `npm test` before committing changes
-- Manual testing can be done by running the server and testing with Things 3
+**Generated Files**:
+- 21 bundled scripts in `jxa/build/` (one per operation)
+- Each script is self-contained and executable
+- Auto-generated with warnings about manual editing
 
-## Tool Development Pattern
+### Security Features
 
-To add a new tool:
-
-1. Add schema to `TOOL_DEFINITIONS` array in `tool-definitions.js`
-2. Add JXA template method to `JXATemplates` class in `jxa-templates.js`
-3. Add handler method to `ToolHandlers` class in `tool-handlers.js`
-4. Add routing in `index.js` `getHandlerMethod()`
-5. Add unit tests for the new functionality
-6. Update documentation
-
-## Version Bumping
-
-When releasing a new version, update the version number in **all three** locations:
-
-1. **`package.json`** - Update the `version` field
-2. **`manifest.json`** - Update the `version` field
-3. **`server/server-config.js`** - Update `SERVER_CONFIG.version`
-
-```bash
-# After updating all three files, repackage the extension:
-dxt pack .
+**Input Validation**:
+```javascript
+// Dangerous pattern detection
+const dangerousPatterns = [
+  /tell\s+application/i,
+  /do\s+shell\s+script/i,
+  /osascript/i,
+  /AppleScript/i
+];
 ```
 
-The packaged DXT file will be created at `things-dxt.dxt` with the new version number.
+**Execution Security**:
+- No shell interpretation (`execFile` vs `exec`)
+- Timeout protection (30s default)
+- Buffer size limits (10MB default) 
+- Enhanced error messages for common issues
+
+### SDEF Compliance
+
+- All property names match Things.sdef specification
+- No backward compatibility layer - clean API only
+- Direct mapping to Things 3 API properties
+- Input validation and security checks
+- Tag handling with comma-separated format
+
+## Development Guidelines
+
+### Adding New Operations
+
+1. **Add to appropriate module** in `jxa/src/`:
+   ```javascript
+   // In todos.js, projects.js, etc.
+   static newOperation(things, params) {
+     // Implementation
+     return mappedResult;
+   }
+   ```
+
+2. **Update main router** in `jxa/src/main.js`:
+   ```javascript
+   case 'new_operation':
+     result = SomeOperations.newOperation(things, params);
+     break;
+   ```
+
+3. **Add tool definition** in `server/tool-definitions.js`
+
+4. **Build**:
+   ```bash
+   npm run build
+   ```
+
+### Debugging
+
+**Enable debug logging**:
+```bash
+DEBUG=true npm start
+```
+
+**Check build output**:
+```bash
+ls -la jxa/build/
+cat jxa/build/operation_name.js
+```
+
+
+### Version Management
+
+Update version in **two** locations:
+1. `package.json` - Update `version` field
+2. `manifest.json` - Update `version` field  
+3. `server/index.js` - Update `SERVER_CONFIG.version`
+
+Then rebuild and package:
+```bash
+npm run build
+npm run package
+```
 
 ## Common Pitfalls
 
-- Don't try to set `activation_date` property directly - use the `schedule` command
-- Always validate user input through `ThingsValidator`
-- JXA returns structured JSON - don't try to parse tab-separated output
-- Things 3 must be running for JXA to work
-- Date formats must be YYYY-MM-DD from user, converted to JavaScript Date objects
-- Remember to handle JXA errors in the wrapped script template
-- Always use `JSON.stringify()` for JXA responses to ensure proper formatting
-- Be careful with parameter names - JXA uses camelCase while our API uses snake_case
+### JXA-Specific Issues
+- **Date scheduling**: Use `schedule()` command, not direct property assignment
+- **Tag format**: Convert arrays to comma-separated strings for Things 3 API
+- **Error handling**: Wrap all Things 3 operations in try-catch blocks
+- **Object access**: Use direct access methods, handle missing objects gracefully
+
+### Build System
+- **Always build**: Run `npm run build` after source changes
+- **Module imports**: Use ES6 imports in source, gets bundled automatically
+- **Script size**: Each bundled script should be under 1MB
+- **Operation names**: Must match exactly between router and tool definitions
+
+### Security
+- **No string embedding**: Never embed parameters in script strings
+- **Validate inputs**: Use `InputValidator` for all user-provided data
+- **Error messages**: Don't expose sensitive data in error responses
+- **Timeouts**: Set appropriate timeouts for long-running operations
+
+### Things 3 Integration
+- **App must be running**: JXA requires Things 3 to be launched
+- **Permissions**: User must grant automation permissions
+- **API limits**: Some operations may have rate limiting
+- **Data consistency**: Always use safe utilities for object access
+
+The modular architecture provides a secure, maintainable foundation that eliminates the security vulnerabilities of the previous string-based approach while offering modern development practices and comprehensive error handling.

@@ -5,16 +5,13 @@
   "description": "Claude Desktop Extension for Things, the award-winning personal task manager",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "DEBUG=true node server/index.js",
+    "start": "npm run build && node server/index.js",
+    "dev": "npm run build && DEBUG=true node server/index.js",
+    "build": "node jxa/build.js",
+    "build:watch": "nodemon --watch jxa/src --exec 'npm run build'",
     "setup": "./setup.sh",
-    "test": "node test/run-tests.js",
-    "test:validation": "node test/validation.test.js",
-    "test:parameter": "node test/parameter-mapping.test.js",
-    "test:response-formatter": "node test/response-formatter.test.js",
-    "test:jxa": "node test/area-id-support.test.js && node test/tags-handling.test.js",
-    "package": "dxt pack .",
-    "validate": "node -c server/index.js && node -c server/utils.js && node -c server/tool-definitions.js && node -c server/tool-handlers.js && node -c server/server-config.js && node -c server/jxa-templates.js && node -c server/response-formatter.js"
+    "package": "npm run build && dxt pack .",
+    "validate": "node -c server/index.js && node -c server/utils.js && node -c server/tool-definitions.js && node -c server/server-config.js && node -c server/response-formatter.js && node -c server/jxa-executor.js && node -c jxa/build.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0"
@@ -45,6 +42,10 @@
     "productivity",
     "todo",
     "project management",
-    "applescript"
-  ]
+    "jxa",
+    "javascript-for-automation"
+  ],
+  "devDependencies": {
+    "esbuild": "^0.25.8"
+  }
 }

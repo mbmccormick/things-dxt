@@ -1,0 +1,42 @@
+# Development dependencies (but keep runtime dependencies)
+node_modules/@esbuild/
+node_modules/esbuild/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Development files
+.env*
+.DS_Store
+*.log
+
+# Test files
+test/
+*.test.js
+coverage/
+
+# Build artifacts that aren't needed at runtime
+jxa/src/
+.github/
+docs/ARCHITECTURE.md
+docs/INSTRUCTIONS.md
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Development tools
+.eslintrc*
+.prettierrc*
+tsconfig.json
