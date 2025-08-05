@@ -1,6 +1,6 @@
 # Things DXT - Claude Desktop Extension
 
-A comprehensive Claude Desktop Extension that provides seamless integration with Things 3, enabling you to manage your complete task workflow directly from Claude conversations using robust AppleScript automation.
+A comprehensive Claude Desktop Extension that provides seamless integration with Things 3, enabling you to manage your complete task workflow directly from Claude conversations using AppleScript via secure JavaScript for Automation (JXA).
 
 ## Download
 
@@ -18,22 +18,14 @@ A comprehensive Claude Desktop Extension that provides seamless integration with
 
 ## Recent Improvements
 
-### Version 1.2.4
-- **🐛 Fixed Apostrophe Handling**: Resolved AppleScript syntax errors when creating todos/projects with apostrophes (#7)
-- **✨ Enhanced Area Support**: Added `area_id` parameter support for precise area assignment (#8)  
-- **🔧 Improved Shell Escaping**: Fixed double escaping issues in AppleScript execution
-- **📚 Comprehensive Documentation**: Added detailed AppleScript escaping guidance to CLAUDE.md
-- **✅ Enhanced Testing**: Added apostrophe handling and area_id support test suites
-
-### Version 1.2.3
-- **🐛 Fixed Project Todos**: `add_project` now properly creates todos when `todos` array is provided (#5)
-- **📝 Documentation**: Added version bumping instructions to CLAUDE.md
-- **✅ Test Coverage**: Added tests for project todos functionality
-
-### Version 1.2.2
-- **🐛 Fixed Tag Removal**: `update_todo` and `update_project` now properly remove all tags when `tags: []` is provided (#3)
-- **🛡️ Input Validation**: Added type checking for tags parameter with descriptive error messages
-- **✅ Test Coverage**: Added comprehensive test suite for tag handling scenarios
+### Version 1.3.0
+- **🏗️ Complete Architecture Overhaul**: Migrated from AppleScript to modular JavaScript for Automation (JXA)
+- **🔒 Security-First Design**: Eliminated shell injection risks with `execFile` and JSON parameter passing
+- **📦 Modular Build System**: ES6 modules compiled with esbuild for maintainable, modern code
+- **⚡ Performance**: Pre-built bundled scripts for faster execution
+- **🧪 Comprehensive Testing**: Unit, integration, and regression test suites
+- **🔧 Better Error Handling**: Enhanced error messages and timeout protection
+- **📚 Developer Experience**: Improved debugging, logging, and development workflow
 
 ## Features
 
@@ -113,8 +105,9 @@ A comprehensive Claude Desktop Extension that provides seamless integration with
 
 #### `update_todo` - Update existing todo
 **Required**: `id`  
-**Optional**: `title`, `notes`, `when`, `deadline`, `tags`, `completed`, `canceled`
+**Optional**: `title`, `notes`, `when`, `deadline`, `tags`, `checklist_items`, `completed`, `canceled`
 - `tags`: Array of tag names. Use `[]` to remove all tags
+- `checklist_items`: Array of checklist items. Appends to existing notes as formatted list
 
 #### `update_project` - Update existing project
 **Required**: `id`  
@@ -174,10 +167,11 @@ Show me what I completed last week, what's in my logbook, and help me organize m
 
 ## Requirements
 
-- **macOS**: Required for AppleScript integration
+- **macOS**: Required for JXA integration
 - **Things 3**: Must be installed and accessible
 - **Node.js**: Version 18.0.0 or higher
 - **Claude Desktop**: Compatible with DXT specification
+- **esbuild**: Automatically installed as dev dependency
 
 ## Installation
 
@@ -188,8 +182,11 @@ cd things-dxt
 # Install dependencies
 npm install
 
+# Build JXA scripts
+npm run build
+
 # Package the extension
-dxt pack .
+npm run package
 
 # Install in Claude Desktop (follow Claude Desktop docs)
 ```
@@ -202,38 +199,51 @@ things-dxt/
 ├── manifest.json              # DXT extension manifest
 ├── package.json               # Dependencies and scripts
 ├── README.md                  # Documentation
+├── CLAUDE.md                  # Claude Code instructions
 ├── server/
 │   ├── index.js               # Main MCP server
 │   ├── tool-definitions.js    # MCP tool schemas
-│   ├── tool-handlers.js       # Tool implementation logic
+│   ├── jxa-executor.js        # Secure JXA execution engine
 │   ├── server-config.js       # Configuration constants
 │   ├── utils.js               # Validation and utilities
-│   ├── applescript-templates.js # AppleScript generation
-│   └── data-parser.js         # Response parsing
+│   └── response-formatter.js  # Response formatting
+├── jxa/
+│   ├── build.js               # Build system for JXA scripts
+│   ├── src/                   # Modular JXA source files
+│   │   ├── main.js            # Entry point and router
+│   │   ├── utils.js           # Shared utilities
+│   │   ├── todos.js           # Todo operations
+│   │   ├── projects.js        # Project operations
+│   │   ├── lists.js           # List operations
+│   │   ├── search.js          # Search operations
+│   │   ├── tags.js            # Tag operations
+│   │   └── areas.js           # Area operations
+│   └── build/                 # Generated bundled scripts
 └── test/
     ├── run-tests.js           # Test runner
-    ├── validation.test.js     # Input validation tests
-    ├── parameter-mapping.test.js # Parameter mapping tests
-    ├── data-parser.test.js    # Data parsing tests
-    ├── applescript-schedule.test.js # Date scheduling tests
-    └── tags-handling.test.js  # Tag handling tests
+    ├── unit/                  # Unit tests
+    ├── integration/           # Integration tests
+    └── regression/            # Regression tests
 ```
 
 ### Key Design Principles
 - **Separation of Concerns**: Modular architecture with clear responsibilities
-- **Security First**: Input validation and AppleScript injection protection
+- **Security First**: No shell injection risks with `execFile` and JSON parameter passing
 - **User-Friendly**: Intuitive parameter names and helpful error messages
 - **Robust Error Handling**: Comprehensive error catching and reporting
 - **Test-Driven**: Comprehensive test coverage for reliability
-- **Performance Optimized**: Efficient resource usage with optimized buffer sizes
+- **Performance Optimized**: Pre-built scripts with efficient resource usage
 - **Extensible**: Easy to add new tools and functionality
+- **Modern JavaScript**: ES6 modules compiled for JXA compatibility
 
 ## Security Features
 
 - **Input Validation**: All parameters validated for type, length, and content
-- **AppleScript Protection**: Advanced sanitization prevents code injection with pattern detection
+- **No Shell Injection**: Uses `execFile` instead of `exec` - parameters never touch shell
+- **JSON Parameter Passing**: Parameters passed as JSON arguments, not embedded in scripts
+- **Pattern Detection**: Dangerous patterns blocked before execution
 - **Error Handling**: Structured error responses with detailed logging
-- **Timeout Management**: Prevents hanging AppleScript operations
+- **Timeout Management**: Prevents hanging JXA operations (30s default)
 - **Safe Execution**: Secure command execution with process isolation
 - **Comprehensive Testing**: Security validation covered by automated test suite
 
@@ -244,36 +254,41 @@ things-dxt/
 # Run comprehensive test suite
 npm test
 
-# Run individual test suites
-npm run test:validation      # Input validation tests
-npm run test:parameter      # Parameter mapping tests  
-npm run test:data-parser    # Data parsing tests
-npm run test:applescript    # AppleScript scheduling tests
+# Run specific test suites
+npm run test:unit        # Unit tests
+npm run test:integration # Integration tests
+npm run test:regression  # Regression tests
+npm run test:watch       # Watch mode for development
+
+# Build JXA scripts
+npm run build
+npm run build:watch     # Watch mode
 
 # Syntax validation
 npm run validate
 
 # Debug mode
 DEBUG=true npm start
-
-# Test individual AppleScript in Script Editor
 ```
 
 ### Test Coverage
 The extension includes a comprehensive test suite covering:
 - **Input Validation**: String, date, array, and number validation with security checks
-- **Parameter Mapping**: User-friendly parameter conversion and backward compatibility
-- **Data Parsing**: AppleScript output parsing for todos, projects, areas, and search results
-- **Security**: AppleScript injection prevention and safe string escaping
+- **Parameter Processing**: User-friendly parameter conversion and validation
+- **JXA Execution**: Script loading, execution, and error handling
+- **Security**: Pattern detection and safe parameter passing
 - **Error Handling**: Consistent error message formatting and validation
-- **Date Scheduling**: Proper AppleScript date handling with `schedule` command
-- **Tag Management**: Empty array handling, type validation, and tag removal scenarios
+- **Date Handling**: Timezone-aware date parsing and formatting
+- **Tag Management**: Format conversion and removal scenarios
+- **List Operations**: Built-in list ID mapping verification
+- **Regression Tests**: Specific issue fixes (#3, #5, etc.)
 
 ### Adding New Tools
-1. Add tool definition to `tool-definitions.js`
-2. Implement handler in `tool-handlers.js`
-3. Add routing in `index.js` `getHandlerMethod()`
-4. Update documentation
+1. Add operation to appropriate module in `jxa/src/` (e.g., `todos.js`)
+2. Update router in `jxa/src/main.js`
+3. Add tool definition to `server/tool-definitions.js`
+4. Run `npm run build` to generate bundled script
+5. Add tests and update documentation
 
 ### Contributing Guidelines
 - Include comprehensive input validation
@@ -319,9 +334,9 @@ MIT License - See package.json for details
 
 ## Acknowledgments
 
-- **Cultured Code** for comprehensive AppleScript support in Things 3
+- **Cultured Code** for Things 3 and its automation support
 - **Anthropic** for the Model Context Protocol (MCP) SDK
-- **things-mcp project** for architectural inspiration
+- **esbuild** for fast, reliable JavaScript bundling
 
 ---
 

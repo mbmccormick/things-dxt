@@ -1,34 +1,42 @@
 /**
- * Server Configuration for Things 3 MCP Integration
- * 
- * This module contains server configuration constants and utilities.
+ * Server configuration constants
  */
 
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get package.json version dynamically
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
+
 export const SERVER_CONFIG = {
-  name: "things-dxt",
-  version: "1.2.4",
+  name: "things",
+  version: packageJson.version,
   capabilities: {
     tools: {},
   },
-  applescript: {
+  jxa: {
     timeout: 30000,
-    maxBuffer: 256 * 1024, // 256KB max buffer - sufficient for typical AppleScript output
+    maxBuffer: 10 * 1024 * 1024, // 10MB
   },
+  validation: {
+    maxScriptSize: 1024 * 1024, // 1MB
+  }
+};
+
+export const THINGS_LIST_IDS = {
+  INBOX: "TMInboxListSource",
+  TODAY: "TMTodayListSource",
+  UPCOMING: "TMUpcomingListSource",
+  ANYTIME: "TMAnytimeListSource",
+  SOMEDAY: "TMSomedayListSource",
+  LOGBOOK: "TMLogbookListSource",
+  TRASH: "TMTrashListSource"
 };
 
 export const ERROR_MESSAGES = {
-  THINGS_NOT_RUNNING: "Things 3 is not running. Please launch Things 3 and try again.",
-  APPLESCRIPT_TIMEOUT: "AppleScript execution timed out",
-  APPLESCRIPT_FAILED: "Failed to execute AppleScript",
-  THINGS_CHECK_FAILED: "Failed to check if Things 3 is running",
-  TODO_NOT_FOUND: "TODO_NOT_FOUND",
-  PROJECT_NOT_FOUND: "PROJECT_NOT_FOUND",
-  ITEM_NOT_FOUND: "ITEM_NOT_FOUND",
-};
-
-export const LOG_LEVELS = {
-  DEBUG: 'debug',
-  INFO: 'info',
-  WARN: 'warn',
-  ERROR: 'error',
+  JXA_TIMEOUT: "JXA execution timed out",
+  THINGS_NOT_RUNNING: "Things 3 is not running. Please start Things 3 and try again."
 };

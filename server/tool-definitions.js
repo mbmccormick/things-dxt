@@ -1,8 +1,7 @@
 /**
- * MCP Tool Definitions for Things 3 Integration
+ * MCP Tool Definitions for Things 3
  * 
- * This module defines all the MCP tools available for the Things 3 integration.
- * Each tool includes its name, description, and input schema.
+ * Defines all available tools with their parameters and descriptions
  */
 
 export const TOOL_DEFINITIONS = [
@@ -14,45 +13,45 @@ export const TOOL_DEFINITIONS = [
       properties: {
         title: {
           type: "string",
-          description: "The title of the to-do item",
+          description: "The title of the to-do item"
         },
         notes: {
           type: "string",
-          description: "Optional notes for the to-do item",
+          description: "Optional notes for the to-do item"
         },
         when: {
           type: "string",
-          description: "Optional when date (when scheduled to work on) in YYYY-MM-DD format",
+          description: "Optional when date (when scheduled to work on) in YYYY-MM-DD format"
         },
         deadline: {
           type: "string",
-          description: "Optional deadline (when actually due) in YYYY-MM-DD format",
+          description: "Optional deadline (when actually due) in YYYY-MM-DD format"
         },
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Optional array of tag names",
+          description: "Optional array of tag names"
         },
         checklist_items: {
           type: "array",
           items: { type: "string" },
-          description: "Optional array of checklist items",
+          description: "Optional array of checklist items"
         },
         list_id: {
           type: "string",
-          description: "Optional list ID to add the to-do to",
+          description: "Optional list ID to add the to-do to"
         },
         list_title: {
           type: "string",
-          description: "Optional list title (project or area name) to add the to-do to",
+          description: "Optional list title (project or area name) to add the to-do to"
         },
         heading: {
           type: "string",
-          description: "Optional heading within the project to add the to-do under",
-        },
+          description: "Optional heading within the project to add the to-do under"
+        }
       },
-      required: ["title"],
-    },
+      required: ["title"]
+    }
   },
   {
     name: "add_project",
@@ -62,73 +61,81 @@ export const TOOL_DEFINITIONS = [
       properties: {
         title: {
           type: "string",
-          description: "The name of the project",
+          description: "The name of the project"
         },
         notes: {
           type: "string",
-          description: "Optional notes for the project",
+          description: "Optional notes for the project"
         },
         when: {
           type: "string",
-          description: "Optional when date (when scheduled to work on) in YYYY-MM-DD format",
+          description: "Optional when date (when scheduled to work on) in YYYY-MM-DD format"
         },
         deadline: {
           type: "string",
-          description: "Optional deadline (when actually due) in YYYY-MM-DD format",
+          description: "Optional deadline (when actually due) in YYYY-MM-DD format"
         },
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Optional array of tag names",
+          description: "Optional array of tag names"
         },
         area_id: {
           type: "string",
-          description: "Optional area ID to add the project to",
+          description: "Optional area ID to add the project to"
         },
         area_title: {
           type: "string",
-          description: "Optional area title to add the project to",
+          description: "Optional area title to add the project to"
         },
         todos: {
           type: "array",
           items: { type: "string" },
-          description: "Optional array of to-do titles to add to the project",
-        },
+          description: "Optional array of to-do titles to add to the project"
+        }
       },
-      required: ["title"],
-    },
+      required: ["title"]
+    }
   },
   {
-    name: "get_areas",
-    description: "Get all areas from Things",
+    name: "get_inbox",
+    description: "Get todos from Inbox",
     inputSchema: {
       type: "object",
-      properties: {
-        include_items: {
-          type: "boolean",
-          description: "Whether to include items in each area",
-          default: false,
-        },
-      },
-    },
+      properties: {}
+    }
   },
   {
-    name: "get_todos",
-    description: "Get todos from Things, optionally filtered by project",
+    name: "get_today",
+    description: "Get todos due today",
     inputSchema: {
       type: "object",
-      properties: {
-        project_uuid: {
-          type: "string",
-          description: "Optional project UUID to filter todos",
-        },
-        include_items: {
-          type: "boolean",
-          description: "Whether to include items",
-          default: true,
-        },
-      },
-    },
+      properties: {}
+    }
+  },
+  {
+    name: "get_upcoming",
+    description: "Get upcoming todos",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "get_anytime",
+    description: "Get todos from Anytime list",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "get_someday",
+    description: "Get todos from Someday list",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
   },
   {
     name: "get_projects",
@@ -138,51 +145,51 @@ export const TOOL_DEFINITIONS = [
       properties: {
         include_items: {
           type: "boolean",
-          description: "Whether to include items in each project",
-          default: false,
+          description: "Whether to include item details in each project",
+          default: false
+        }
+      }
+    }
+  },
+  {
+    name: "get_areas",
+    description: "Get all areas from Things",
+    inputSchema: {
+      type: "object",
+      properties: {
+        include_items: {
+          type: "boolean",
+          description: "Whether to include item details in each area",
+          default: false
+        }
+      }
+    }
+  },
+  {
+    name: "get_tags",
+    description: "Get all tags from Things",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "get_todos",
+    description: "Get todos from Things, optionally filtered by project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_uuid: {
+          type: "string",
+          description: "Optional project UUID to filter todos"
         },
-      },
-    },
-  },
-  {
-    name: "get_inbox",
-    description: "Get todos from Inbox",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-  },
-  {
-    name: "get_today",
-    description: "Get todos due today",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-  },
-  {
-    name: "get_upcoming",
-    description: "Get upcoming todos",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-  },
-  {
-    name: "get_anytime",
-    description: "Get todos from Anytime list",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-  },
-  {
-    name: "get_someday",
-    description: "Get todos from Someday list",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
+        include_items: {
+          type: "boolean",
+          description: "Whether to include item details",
+          default: true
+        }
+      }
+    }
   },
   {
     name: "get_logbook",
@@ -193,32 +200,24 @@ export const TOOL_DEFINITIONS = [
         period: {
           type: "string",
           description: "Time period (e.g., '7d', '2w', '1m', '1y')",
-          pattern: "^\\d+[dwmy]$",
+          pattern: "^\\d+[dwmy]$"
         },
         limit: {
           type: "integer",
           description: "Maximum number of todos to return",
           minimum: 1,
-          maximum: 100,
-        },
-      },
-    },
+          maximum: 100
+        }
+      }
+    }
   },
   {
     name: "get_trash",
     description: "Get trashed todos",
     inputSchema: {
       type: "object",
-      properties: {},
-    },
-  },
-  {
-    name: "get_tags",
-    description: "Get all tags from Things",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
+      properties: {}
+    }
   },
   {
     name: "get_tagged_items",
@@ -228,11 +227,11 @@ export const TOOL_DEFINITIONS = [
       properties: {
         tag_title: {
           type: "string",
-          description: "The tag title to filter by",
-        },
+          description: "The tag title to filter by"
+        }
       },
-      required: ["tag_title"],
-    },
+      required: ["tag_title"]
+    }
   },
   {
     name: "search_todos",
@@ -242,11 +241,11 @@ export const TOOL_DEFINITIONS = [
       properties: {
         query: {
           type: "string",
-          description: "Search query",
-        },
+          description: "Search query"
+        }
       },
-      required: ["query"],
-    },
+      required: ["query"]
+    }
   },
   {
     name: "search_advanced",
@@ -256,28 +255,28 @@ export const TOOL_DEFINITIONS = [
       properties: {
         query: {
           type: "string",
-          description: "Search query",
+          description: "Search query"
+        },
+        completed: {
+          type: "boolean",
+          description: "Include completed items"
+        },
+        canceled: {
+          type: "boolean",
+          description: "Include canceled items"
+        },
+        trashed: {
+          type: "boolean",
+          description: "Include trashed items"
         },
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Tags to filter by",
-        },
-        completed: {
-          type: "boolean",
-          description: "Include completed items",
-        },
-        canceled: {
-          type: "boolean",
-          description: "Include canceled items",
-        },
-        trashed: {
-          type: "boolean",
-          description: "Include trashed items",
-        },
+          description: "Optional array of tag names to filter by"
+        }
       },
-      required: ["query"],
-    },
+      required: ["query"]
+    }
   },
   {
     name: "get_recent",
@@ -288,10 +287,10 @@ export const TOOL_DEFINITIONS = [
         days: {
           type: "integer",
           description: "Number of days to look back",
-          default: 7,
-        },
-      },
-    },
+          default: 7
+        }
+      }
+    }
   },
   {
     name: "update_todo",
@@ -301,40 +300,45 @@ export const TOOL_DEFINITIONS = [
       properties: {
         id: {
           type: "string",
-          description: "The ID of the to-do to update",
+          description: "The ID of the to-do to update"
         },
         title: {
           type: "string",
-          description: "Optional new title for the to-do",
+          description: "Optional new title for the to-do item"
         },
         notes: {
           type: "string",
-          description: "Optional new notes for the to-do",
+          description: "Optional new notes for the to-do"
         },
         when: {
           type: "string",
-          description: "Optional when date (when scheduled to work on) in YYYY-MM-DD format",
+          description: "Optional when date (when scheduled to work on) in YYYY-MM-DD format"
         },
         deadline: {
           type: "string",
-          description: "Optional deadline (when actually due) in YYYY-MM-DD format",
+          description: "Optional deadline (when actually due) in YYYY-MM-DD format"
         },
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Optional array of tag names to set",
+          description: "Optional array of tag names"
+        },
+        checklist_items: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional array of checklist items"
         },
         completed: {
           type: "boolean",
-          description: "Mark as completed",
+          description: "Mark as completed"
         },
         canceled: {
           type: "boolean",
-          description: "Mark as canceled",
-        },
+          description: "Mark as canceled"
+        }
       },
-      required: ["id"],
-    },
+      required: ["id"]
+    }
   },
   {
     name: "update_project",
@@ -344,40 +348,40 @@ export const TOOL_DEFINITIONS = [
       properties: {
         id: {
           type: "string",
-          description: "The ID of the project to update",
+          description: "The ID of the project to update"
         },
         title: {
           type: "string",
-          description: "Optional new title for the project",
+          description: "Optional new name for the project"
         },
         notes: {
           type: "string",
-          description: "Optional new notes for the project",
+          description: "Optional new notes for the project"
         },
         when: {
           type: "string",
-          description: "Optional when date (when scheduled to work on) in YYYY-MM-DD format",
+          description: "Optional when date (when scheduled to work on) in YYYY-MM-DD format"
         },
         deadline: {
           type: "string",
-          description: "Optional deadline (when actually due) in YYYY-MM-DD format",
+          description: "Optional deadline (when actually due) in YYYY-MM-DD format"
         },
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Optional array of tag names to set",
+          description: "Optional array of tag names"
         },
         completed: {
           type: "boolean",
-          description: "Mark as completed",
+          description: "Mark as completed"
         },
         canceled: {
           type: "boolean",
-          description: "Mark as canceled",
-        },
+          description: "Mark as canceled"
+        }
       },
-      required: ["id"],
-    },
+      required: ["id"]
+    }
   },
   {
     name: "show_item",
@@ -387,11 +391,11 @@ export const TOOL_DEFINITIONS = [
       properties: {
         id: {
           type: "string",
-          description: "The ID of the item to show",
-        },
+          description: "The ID of the item to show"
+        }
       },
-      required: ["id"],
-    },
+      required: ["id"]
+    }
   },
   {
     name: "search_items",
@@ -401,10 +405,10 @@ export const TOOL_DEFINITIONS = [
       properties: {
         query: {
           type: "string",
-          description: "Search query",
-        },
+          description: "Search query"
+        }
       },
-      required: ["query"],
-    },
-  },
+      required: ["query"]
+    }
+  }
 ];
