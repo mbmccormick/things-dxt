@@ -69,6 +69,11 @@ This is a Claude Desktop Extension (DXT) that integrates with Things 3 via JavaS
 - `InputValidator`: Security-focused input validation
 - `ParameterProcessor`: API consistency and backward compatibility
 
+**`server/response-formatter.js`** - Response formatting
+- Formats JXA responses into consistent JSON structure
+- Handles error responses with proper error codes
+- Provides user-friendly messages
+
 **`jxa/src/` Modular Sources**:
 - `main.js` - Entry point and operation routing
 - `utils.js` - Shared utilities and object mapping functions
@@ -296,13 +301,44 @@ ls -la jxa/build/
 cat jxa/build/operation_name.js
 ```
 
+### Testing
+
+**Run all tests**:
+```bash
+npm test
+```
+
+**Run specific test suites**:
+```bash
+npm run test:unit        # Unit tests
+npm run test:integration # Integration tests  
+npm run test:regression  # Regression tests
+npm run test:watch       # Watch mode
+```
+
+**Test Structure**:
+- `test/unit/` - Unit tests for individual components
+  - `input-validator.test.js` - Input validation tests
+  - `parameter-processor.test.js` - Parameter processing tests
+  - `tag-formatting.test.js` - Tag format conversion tests
+  - `date-handling.test.js` - Date parsing and formatting tests
+  - `list-ids.test.js` - List ID mapping tests
+  - `mcp-server.test.js` - MCP server behavior tests
+- `test/integration/` - Integration tests
+  - `list-operations.test.js` - List operation tests
+- `test/regression/` - Regression tests for specific issues
+  - `tag-removal.test.js` - Tag removal functionality (#3)
+  - `child-tasks.test.js` - Project with todos creation (#5)
+  - `list-ids.test.js` - Built-in list ID verification
+
 
 ### Version Management
 
 Update version in **two** locations:
 1. `package.json` - Update `version` field
-2. `manifest.json` - Update `version` field  
-3. `server/index.js` - Update `SERVER_CONFIG.version`
+2. `manifest.json` - Update `version` field
+
+The server automatically reads the version from `package.json` via `server-config.js`.
 
 Then rebuild and package:
 ```bash
