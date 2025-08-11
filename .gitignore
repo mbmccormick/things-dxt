@@ -61,5 +61,8 @@ Thumbs.db
 # DXT package files
 *.dxt
 
+# JXA build directory (generated files)
+jxa/build/
+
 # .claude directory
 .claude/
