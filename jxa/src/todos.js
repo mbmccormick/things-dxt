@@ -20,35 +20,18 @@ export class TodoOperations {
     }
     
     const todo = things.ToDo(todoProps);
-    things.toDos.push(todo);
-    
-    // Set tags (convert array to comma-separated string)
-    if (params.tags && params.tags.length > 0) {
-      todo.tagNames = formatTags(params.tags);
-    }
-    
-    
-    // Schedule activation date (when to work on)
-    if (params.activation_date) {
-      scheduleItem(things, todo, params.activation_date);
-    }
-    
-    // Set due date (when actually due)
-    if (params.due_date) {
-      todo.dueDate = parseLocalDate(params.due_date);
-    }
-    
-    // Add to list/project
+
+    // Determine target location
+    let targetList = null;
+
+    // Check for list_id first
     if (params.list_id) {
       try {
-        const list = things.lists.byId(params.list_id);
-        list.toDos.push(todo);
+        targetList = things.lists.byId(params.list_id);
       } catch (e) {
-        // List not found, todo stays in inbox
+        // List not found, will add to inbox
       }
     } else if (params.list_title) {
-      let targetList;
-      
       // Check projects
       try {
         const projects = things.projects();
@@ -59,7 +42,7 @@ export class TodoOperations {
           }
         }
       } catch (e) {}
-      
+
       // Check areas if not found in projects
       if (!targetList) {
         try {
@@ -72,10 +55,29 @@ export class TodoOperations {
           }
         } catch (e) {}
       }
-      
-      if (targetList) {
-        targetList.toDos.push(todo);
-      }
+    }
+
+    // Add todo to appropriate location
+    if (targetList) {
+      targetList.toDos.push(todo);
+    } else {
+      // Only add to general todos (inbox) if no specific list/project
+      things.toDos.push(todo);
+    }
+
+    // Set tags (convert array to comma-separated string)
+    if (params.tags && params.tags.length > 0) {
+      todo.tagNames = formatTags(params.tags);
+    }
+
+    // Schedule activation date (when to work on)
+    if (params.activation_date) {
+      scheduleItem(things, todo, params.activation_date);
+    }
+
+    // Set due date (when actually due)
+    if (params.due_date) {
+      todo.dueDate = parseLocalDate(params.due_date);
     }
     
     // Add to heading within project
