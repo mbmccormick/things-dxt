@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "things-mcpb",
   "display_name": "Things (AppleScript)",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Claude Desktop Extension for Things, the award-winning personal task manager",
   "long_description": "This extension provides seamless integration between Claude Desktop and Things task manager through AppleScript automation. Create, manage, and organize your tasks directly from Claude conversations. Features include creating to-dos, projects, areas, tags, and managing your task workflow efficiently.",
   "author": {

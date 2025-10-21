@@ -11,8 +11,8 @@ export class SearchOperations {
    */
   static searchTodos(things, params) {
     const query = params.query.toLowerCase();
-    const allTodos = things.toDos();
-    
+    const allTodos = Array.from(things.toDos());
+
     const matches = allTodos.filter(todo => {
       try {
         const name = todo.name().toLowerCase();
@@ -22,7 +22,7 @@ export class SearchOperations {
         return false;
       }
     });
-    
+
     return matches.map(mapTodo);
   }
   
@@ -111,7 +111,7 @@ export class SearchOperations {
     // Include canceled items if requested
     if (params.canceled) {
       try {
-        const allTodos = things.toDos();
+        const allTodos = Array.from(things.toDos());
         const canceled = allTodos.filter(t => {
           try {
             return t.status() === 'canceled';
@@ -165,14 +165,14 @@ export class SearchOperations {
     const days = params.days || 7;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
-    
+
     let allTodos;
     try {
-      allTodos = things.toDos();
+      allTodos = Array.from(things.toDos());
     } catch (e) {
       return [];
     }
-    
+
     const recent = allTodos.filter(todo => {
       try {
         const modDate = todo.modificationDate();
@@ -181,7 +181,7 @@ export class SearchOperations {
         return false;
       }
     });
-    
+
     // Sort by modification date (newest first)
     recent.sort((a, b) => {
       try {
@@ -192,7 +192,7 @@ export class SearchOperations {
         return 0;
       }
     });
-    
+
     return recent.map(mapTodo);
   }
   

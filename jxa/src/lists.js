@@ -51,15 +51,17 @@ export class ListOperations {
    */
   static getLogbook(things, params) {
     const logbook = safeGetList(things, LIST_IDS.LOGBOOK);
-    
+
+    // Convert to array for filtering
+    let filtered = Array.from(logbook);
+
     // Apply period filter if specified
-    let filtered = logbook;
     if (params.period) {
       const match = params.period.match(/^(\d+)([dwmy])$/);
       if (match) {
         const amount = parseInt(match[1]);
         const unit = match[2];
-        
+
         const cutoffDate = new Date();
         switch (unit) {
           case 'd': cutoffDate.setDate(cutoffDate.getDate() - amount); break;
@@ -67,8 +69,8 @@ export class ListOperations {
           case 'm': cutoffDate.setMonth(cutoffDate.getMonth() - amount); break;
           case 'y': cutoffDate.setFullYear(cutoffDate.getFullYear() - amount); break;
         }
-        
-        filtered = logbook.filter(todo => {
+
+        filtered = filtered.filter(todo => {
           try {
             const completionDate = todo.completionDate();
             return completionDate && completionDate >= cutoffDate;
@@ -78,11 +80,11 @@ export class ListOperations {
         });
       }
     }
-    
+
     // Apply limit
     const limit = params.limit || 100;
     const limited = filtered.slice(0, limit);
-    
+
     return limited.map(mapTodo);
   }
   
