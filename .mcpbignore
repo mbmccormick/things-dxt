@@ -1,6 +1,7 @@
 # Development dependencies (but keep runtime dependencies)
 node_modules/@esbuild/
 node_modules/esbuild/
+node_modules/@anthropic-ai/mcpb/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -19,14 +20,17 @@ coverage/
 .github/
 docs/
 jxa/src/
+jxa/build.js
 
 # Git
 .git/
 .gitignore
+.mcpbignore
 
 # IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 
@@ -39,3 +43,7 @@ jxa/src/
 .eslintrc*
 .prettierrc*
 tsconfig.json
+package-lock.json
+
+# MCP config (user-specific)
+.mcp.json
