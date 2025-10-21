@@ -1,6 +1,6 @@
 /**
- * Test Utilities for Things DXT Test Suite
- * 
+ * Test Utilities for Things MCPB Test Suite
+ *
  * Provides common testing helpers, assertions, and mock factories
  */
 

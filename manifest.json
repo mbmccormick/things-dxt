@@ -1,8 +1,8 @@
 {
-  "dxt_version": "0.1",
-  "name": "things-dxt",
+  "manifest_version": "0.2",
+  "name": "things-mcpb",
   "display_name": "Things (AppleScript)",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "Claude Desktop Extension for Things, the award-winning personal task manager",
   "long_description": "This extension provides seamless integration between Claude Desktop and Things task manager through AppleScript automation. Create, manage, and organize your tasks directly from Claude conversations. Features include creating to-dos, projects, areas, tags, and managing your task workflow efficiently.",
   "author": {
@@ -12,11 +12,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mbmccormick/things-dxt.git"
+    "url": "https://github.com/mbmccormick/things-mcpb.git"
   },
-  "homepage": "https://github.com/mbmccormick/things-dxt",
-  "documentation": "https://github.com/mbmccormick/things-dxt/blob/main/README.md",
-  "support": "https://github.com/mbmccormick/things-dxt/issues",
+  "homepage": "https://github.com/mbmccormick/things-mcpb",
+  "documentation": "https://github.com/mbmccormick/things-mcpb/blob/main/README.md",
+  "support": "https://github.com/mbmccormick/things-mcpb/issues",
   "icon": "icon.png",
   "license": "MIT",
   "keywords": [
@@ -33,7 +33,7 @@
       "darwin"
     ],
     "runtimes": {
-      "node": ">=16.0.0"
+      "node": ">=18.0.0"
     }
   },
   "tools_generated": true,

@@ -31,7 +31,7 @@ npm run package
 
 ## Architecture Overview
 
-This is a Claude Desktop Extension (DXT) that integrates with Things 3 via JavaScript for Automation (JXA). The architecture follows a **modular, security-first design** based on bundled JXA scripts and secure parameter passing.
+This is a Claude Desktop Extension (MCPB) that integrates with Things 3 via JavaScript for Automation (JXA). The architecture follows a **modular, security-first design** based on bundled JXA scripts and secure parameter passing.
 
 ### Core Architecture
 

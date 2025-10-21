@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Test Runner for Things DXT
- * 
+ * Test Runner for Things MCPB
+ *
  * Comprehensive test suite covering:
  * - MCP server functionality
  * - JXA script execution
- * - Things 3 API integration  
+ * - Things 3 API integration
  * - Known issues from GitHub
  * - Data handling and edge cases
  */
@@ -53,8 +53,8 @@ const TEST_FILES = [
 ];
 
 async function runTests() {
-  console.log('🧪 Things DXT Test Suite');
-  console.log('========================\n');
+  console.log('🧪 Things MCPB Test Suite');
+  console.log('=========================\n');
   
   let passed = 0;
   let failed = 0;

@@ -1,22 +1,29 @@
-# Things DXT - Claude Desktop Extension
+# Things MCPB - Claude Desktop Extension
 
 A comprehensive Claude Desktop Extension that provides seamless integration with Things 3, enabling you to manage your complete task workflow directly from Claude conversations using AppleScript via secure JavaScript for Automation (JXA).
 
 ## Download
 
-### [⬇️ Download Latest Release](https://github.com/mbmccormick/things-dxt/releases/latest)
+### [⬇️ Download Latest Release](https://github.com/mbmccormick/things-mcpb/releases/latest)
 
 ## Quick Start
 
 1. **Install Dependencies**: `npm install`
 2. **Run Tests**: `npm test` (optional but recommended)
-3. **Package Extension**: `dxt pack .`
+3. **Package Extension**: `mcpb pack .`
 4. **Install in Claude Desktop**: Follow Claude Desktop's extension installation process
 5. **Launch Things 3**: Ensure Things 3 is running before using commands
 
 > **💡 Pro Tip**: Use `when` for scheduling (when to work on) and `deadline` for final due dates.
 
 ## Recent Improvements
+
+### Version 1.4.0
+- **📦 MCPB Format Migration**: Updated from DXT to the new MCPB (MCP Bundle) format specification v0.2
+- **📦 Package Updates**: Updated @modelcontextprotocol/sdk to v1.20.1 and esbuild to v0.25.11
+- **🔧 Tooling**: Migrated from `dxt` CLI to `mcpb` CLI for packaging
+- **📝 Documentation**: Updated all documentation and references to reflect MCPB naming
+- **✅ Compatibility**: Maintained full backward compatibility with all existing functionality
 
 ### Version 1.3.0
 - **🏗️ Complete Architecture Overhaul**: Migrated from AppleScript to modular JavaScript for Automation (JXA)
@@ -170,14 +177,14 @@ Show me what I completed last week, what's in my logbook, and help me organize m
 - **macOS**: Required for JXA integration
 - **Things 3**: Must be installed and accessible
 - **Node.js**: Version 18.0.0 or higher
-- **Claude Desktop**: Compatible with DXT specification
+- **Claude Desktop**: Compatible with MCPB specification
 - **esbuild**: Automatically installed as dev dependency
 
 ## Installation
 
 ```bash
 # Clone or download the extension
-cd things-dxt
+cd things-mcpb
 
 # Install dependencies
 npm install
@@ -195,8 +202,8 @@ npm run package
 
 ### Project Structure
 ```
-things-dxt/
-├── manifest.json              # DXT extension manifest
+things-mcpb/
+├── manifest.json              # MCPB extension manifest
 ├── package.json               # Dependencies and scripts
 ├── README.md                  # Documentation
 ├── CLAUDE.md                  # Claude Code instructions

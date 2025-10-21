@@ -58,8 +58,8 @@ jspm_packages/
 ehthumbs.db
 Thumbs.db
 
-# DXT package files
-*.dxt
+# MCPB package files
+*.mcpb
 
 # JXA build directory (generated files)
 jxa/build/

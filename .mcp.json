@@ -1,10 +1,10 @@
 {
     "mcpServers": {
-        "things-dxt": {
+        "things-mcpb": {
             "type": "stdio",
             "command": "node",
             "args": [
-                "/Users/matt/Documents/things-dxt/server/index.js"
+                "/Users/matt/Documents/things-mcpb/server/index.js"
             ]
         }
     }
