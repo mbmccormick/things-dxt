@@ -110,6 +110,15 @@ export class JXAExecutor {
       return this.parseResponse(stdout);
       
     } catch (error) {
+      // Extract stderr from error if available
+      const stderr = error.stderr || '';
+      const stdout = error.stdout || '';
+
+      // Log stderr for debugging
+      if (stderr) {
+        ThingsLogger.error("JXA execution failed with stderr", { stderr: stderr.trim() });
+      }
+
       // Enhanced error handling for common JXA issues
       if (error.code === 'ETIMEDOUT') {
         throw new McpError(
@@ -117,21 +126,27 @@ export class JXAExecutor {
           `JXA execution timed out after ${this.timeout}ms`
         );
       }
-      
+
       if (error.message.includes('Application isn\'t running')) {
         throw new McpError(
           ErrorCode.InternalError,
           'Things 3 is not running. Please start Things 3 and try again.'
         );
       }
-      
+
       if (error.message.includes('not authorized')) {
         throw new McpError(
           ErrorCode.InternalError,
           'Automation access denied. Please enable automation for this application in System Preferences > Security & Privacy > Privacy > Automation.'
         );
       }
-      
+
+      // If stderr is available, include it in the error message
+      if (stderr) {
+        const errorMsg = stderr.trim() || error.message;
+        throw new Error(`JXA execution failed: ${errorMsg}`);
+      }
+
       throw error;
     }
   }
